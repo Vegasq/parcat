@@ -85,10 +85,10 @@ Review and improve test coverage for parcat SQL library
 
 ## Validation
 
-- [ ] manual test: run CLI with various SQL queries on test parquet files
-- [ ] run full test suite: `go test -race ./...`
-- [ ] run linter: `go vet ./...`
-- [ ] verify test coverage meets 75+% overall
+- [x] manual test: run CLI with various SQL queries on test parquet files
+- [x] run full test suite: `go test -race ./...`
+- [x] run linter: `go vet ./...`
+- [x] verify test coverage meets 75+% overall
 
 ## Finalization
 
