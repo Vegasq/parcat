@@ -57,10 +57,10 @@ Review and improve test coverage for parcat SQL library
 - [x] run project test suite - must pass before task 4
 
 ### Task 4: Add window function subquery detection tests
-- [ ] Test functions: HasSubqueryInWHERE, hasSubqueryInExpression, HasSubqueryInSELECT, hasScalarSubquery
-- [ ] Write tests in query/window_test.go
-- [ ] Run: `go test -v ./query -run TestSubquery`
-- [ ] run project test suite - must pass before task 5
+- [x] Test functions: HasSubqueryInWHERE, hasSubqueryInExpression, HasSubqueryInSELECT, hasScalarSubquery
+- [x] Write tests in query/window_test.go
+- [x] Run: `go test -v ./query -run TestSubquery`
+- [x] run project test suite - must pass before task 5
 
 ### Task 5: Add parser window frame tests
 - [ ] Test functions: parseWindowFrame, parseFrameBound (currently 0%)
