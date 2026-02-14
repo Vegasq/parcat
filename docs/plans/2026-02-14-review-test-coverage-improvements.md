@@ -36,11 +36,11 @@ Review and improve test coverage for parcat SQL library
 ## Implementation Tasks
 
 ### Task 1: Add tests for date/time functions in query/function.go
-- [ ] Test functions: NowFunc, CurrentDateFunc, CurrentTimeFunc, DateTruncFunc, DatePartFunc, DateAddFunc, DateSubFunc, DateDiffFunc, YearFunc, MonthFunc, parseDate
-- [ ] Target: 0% to 70+% for these functions
-- [ ] Write tests in query/function_test.go
-- [ ] Run: `go test -v ./query -run TestDate`
-- [ ] run project test suite - must pass before task 2
+- [x] Test functions: NowFunc, CurrentDateFunc, CurrentTimeFunc, DateTruncFunc, DatePartFunc, DateAddFunc, DateSubFunc, DateDiffFunc, YearFunc, MonthFunc, parseDate
+- [x] Target: 0% to 70+% for these functions
+- [x] Write tests in query/function_test.go
+- [x] Run: `go test -v ./query -run TestDate`
+- [x] run project test suite - must pass before task 2
 
 ### Task 2: Add tests for type conversion functions
 - [ ] Test functions: CastFunc, TryCastFunc, ToDateFunc, SplitFunc, RandomFunc, MinFunc, MaxFunc
