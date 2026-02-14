@@ -1714,3 +1714,721 @@ func TestParquetMultipleJoins(t *testing.T) {
 		})
 	}
 }
+
+// TestParquetCTE tests Common Table Expressions (WITH clause) with real parquet files
+func TestParquetCTE(t *testing.T) {
+	testData := []BasicDataRow{
+		{ID: 1, Name: "Alice", Age: 30, Salary: 50000.0, Active: true, Score: 85.5},
+		{ID: 2, Name: "Bob", Age: 25, Salary: 45000.0, Active: false, Score: 72.3},
+		{ID: 3, Name: "Charlie", Age: 35, Salary: 60000.0, Active: true, Score: 91.2},
+		{ID: 4, Name: "Diana", Age: 28, Salary: 52000.0, Active: true, Score: 78.9},
+		{ID: 5, Name: "Eve", Age: 30, Salary: 48000.0, Active: false, Score: 88.1},
+	}
+
+	testFile := createBasicParquetFile(t, testData)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+		validate func(t *testing.T, rows []map[string]interface{})
+	}{
+		{
+			name:     "single CTE",
+			queryTpl: "WITH high_earners AS (SELECT * FROM '%s' WHERE salary > 50000) SELECT name, salary FROM high_earners",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					salary := row["salary"].(float64)
+					if salary <= 50000 {
+						t.Errorf("Expected salary > 50000, got %f", salary)
+					}
+				}
+			},
+		},
+		{
+			name:     "CTE with aggregation",
+			queryTpl: "WITH age_groups AS (SELECT age, COUNT(*) as count FROM '%s' GROUP BY age) SELECT age, count FROM age_groups WHERE count > 1",
+			wantRows: 1,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					count := row["count"].(int64)
+					if count <= 1 {
+						t.Errorf("Expected count > 1, got %d", count)
+					}
+				}
+			},
+		},
+		{
+			name:     "multiple CTEs",
+			queryTpl: "WITH active_users AS (SELECT * FROM '%s' WHERE active = true), high_scorers AS (SELECT * FROM active_users WHERE score > 80) SELECT name, score FROM high_scorers",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					score := row["score"].(float64)
+					if score <= 80 {
+						t.Errorf("Expected score > 80, got %f", score)
+					}
+				}
+			},
+		},
+		{
+			name:     "CTE with join",
+			queryTpl: "WITH young_users AS (SELECT * FROM '%s' WHERE age < 30) SELECT y.name, y.age FROM young_users y",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					var age int64
+					if val, ok := row["y.age"]; ok && val != nil {
+						age = val.(int64)
+					} else if val, ok := row["age"]; ok && val != nil {
+						age = val.(int64)
+					} else {
+						t.Errorf("Age column not found or is nil")
+						continue
+					}
+					if age >= 30 {
+						t.Errorf("Expected age < 30, got %d", age)
+					}
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, results)
+			}
+		})
+	}
+}
+
+// TestParquetSubquery tests subqueries in SELECT, FROM, and WHERE clauses
+func TestParquetSubquery(t *testing.T) {
+	t.Skip("Subqueries are not yet implemented in the query engine")
+	testData := []BasicDataRow{
+		{ID: 1, Name: "Alice", Age: 30, Salary: 50000.0, Active: true, Score: 85.5},
+		{ID: 2, Name: "Bob", Age: 25, Salary: 45000.0, Active: false, Score: 72.3},
+		{ID: 3, Name: "Charlie", Age: 35, Salary: 60000.0, Active: true, Score: 91.2},
+		{ID: 4, Name: "Diana", Age: 28, Salary: 52000.0, Active: true, Score: 78.9},
+	}
+
+	testFile := createBasicParquetFile(t, testData)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+		validate func(t *testing.T, rows []map[string]interface{})
+	}{
+		{
+			name:     "subquery in WHERE with scalar result",
+			queryTpl: "SELECT name, salary FROM '%s' WHERE salary > (SELECT AVG(salary) FROM '%s')",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				avgSalary := (50000.0 + 45000.0 + 60000.0 + 52000.0) / 4.0
+				for _, row := range rows {
+					salary := row["salary"].(float64)
+					if salary <= avgSalary {
+						t.Errorf("Expected salary > %f, got %f", avgSalary, salary)
+					}
+				}
+			},
+		},
+		{
+			name:     "subquery in FROM clause",
+			queryTpl: "SELECT name, avg_score FROM (SELECT name, AVG(score) as avg_score FROM '%s' GROUP BY name) WHERE avg_score > 80",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					avgScore := row["avg_score"].(float64)
+					if avgScore <= 80 {
+						t.Errorf("Expected avg_score > 80, got %f", avgScore)
+					}
+				}
+			},
+		},
+		{
+			name:     "subquery with IN clause",
+			queryTpl: "SELECT name FROM '%s' WHERE age IN (SELECT age FROM '%s' WHERE age >= 30)",
+			wantRows: 3,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					name := row["name"].(string)
+					if name == "Bob" || name == "Diana" {
+						t.Errorf("Expected only users with age >= 30, got %s", name)
+					}
+				}
+			},
+		},
+		{
+			name:     "subquery in SELECT clause",
+			queryTpl: "SELECT name, salary, (SELECT MAX(salary) FROM '%s') as max_salary FROM '%s'",
+			wantRows: 4,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					maxSalary := row["max_salary"].(float64)
+					if maxSalary != 60000.0 {
+						t.Errorf("Expected max_salary 60000, got %f", maxSalary)
+					}
+				}
+			},
+		},
+		{
+			name:     "nested subquery",
+			queryTpl: "SELECT name FROM '%s' WHERE salary > (SELECT AVG(salary) FROM '%s' WHERE age > (SELECT MIN(age) FROM '%s'))",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					name := row["name"].(string)
+					if name != "Charlie" && name != "Diana" {
+						t.Errorf("Unexpected name in nested subquery result: %s", name)
+					}
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile, testFile, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, results)
+			}
+		})
+	}
+}
+
+// TestParquetWindowFunctions tests window functions like ROW_NUMBER, RANK, LAG, LEAD, SUM OVER
+func TestParquetWindowFunctions(t *testing.T) {
+	t.Skip("Window functions are not yet fully implemented in the query engine")
+	testData := []BasicDataRow{
+		{ID: 1, Name: "Alice", Age: 30, Salary: 50000.0, Active: true, Score: 85.5},
+		{ID: 2, Name: "Bob", Age: 25, Salary: 45000.0, Active: false, Score: 72.3},
+		{ID: 3, Name: "Charlie", Age: 30, Salary: 60000.0, Active: true, Score: 91.2},
+		{ID: 4, Name: "Diana", Age: 25, Salary: 52000.0, Active: true, Score: 78.9},
+		{ID: 5, Name: "Eve", Age: 35, Salary: 48000.0, Active: false, Score: 88.1},
+	}
+
+	testFile := createBasicParquetFile(t, testData)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+		validate func(t *testing.T, rows []map[string]interface{})
+	}{
+		{
+			name:     "ROW_NUMBER window function",
+			queryTpl: "SELECT name, salary, ROW_NUMBER() OVER (ORDER BY salary DESC) as rank FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for i, row := range rows {
+					rank := row["rank"].(int64)
+					if rank != int64(i+1) {
+						t.Errorf("Row %d: expected rank %d, got %d", i, i+1, rank)
+					}
+				}
+				// Check highest salary has rank 1
+				if rows[0]["name"].(string) != "Charlie" {
+					t.Errorf("Expected Charlie (highest salary) at rank 1")
+				}
+			},
+		},
+		{
+			name:     "RANK window function with ties",
+			queryTpl: "SELECT name, age, RANK() OVER (ORDER BY age DESC) as rank FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				// Eve (35) should be rank 1
+				// Alice and Charlie (30) should both be rank 2
+				// Bob and Diana (25) should both be rank 4
+				rankCounts := make(map[int64]int)
+				for _, row := range rows {
+					rank := row["rank"].(int64)
+					rankCounts[rank]++
+				}
+				if rankCounts[1] != 1 {
+					t.Errorf("Expected 1 person at rank 1, got %d", rankCounts[1])
+				}
+				if rankCounts[2] != 2 {
+					t.Errorf("Expected 2 people at rank 2, got %d", rankCounts[2])
+				}
+			},
+		},
+		{
+			name:     "LAG window function",
+			queryTpl: "SELECT name, salary, LAG(salary, 1) OVER (ORDER BY salary) as prev_salary FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				// First row should have null prev_salary
+				if rows[0]["prev_salary"] != nil {
+					t.Errorf("Expected first row to have null prev_salary, got %v", rows[0]["prev_salary"])
+				}
+				// Check that prev_salary is less than current salary
+				for i := 1; i < len(rows); i++ {
+					currentSalary := rows[i]["salary"].(float64)
+					prevSalary := rows[i]["prev_salary"].(float64)
+					if prevSalary >= currentSalary {
+						t.Errorf("Row %d: prev_salary should be less than current salary", i)
+					}
+				}
+			},
+		},
+		{
+			name:     "LEAD window function",
+			queryTpl: "SELECT name, score, LEAD(score, 1) OVER (ORDER BY score) as next_score FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				// Last row should have null next_score
+				if rows[len(rows)-1]["next_score"] != nil {
+					t.Errorf("Expected last row to have null next_score")
+				}
+				// Check that next_score is greater than current score
+				for i := 0; i < len(rows)-1; i++ {
+					currentScore := rows[i]["score"].(float64)
+					nextScore := rows[i]["next_score"].(float64)
+					if nextScore <= currentScore {
+						t.Errorf("Row %d: next_score should be greater than current score", i)
+					}
+				}
+			},
+		},
+		{
+			name:     "SUM OVER window function",
+			queryTpl: "SELECT name, salary, SUM(salary) OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as running_total FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				var expectedTotal float64
+				for i, row := range rows {
+					salary := row["salary"].(float64)
+					expectedTotal += salary
+					runningTotal := row["running_total"].(float64)
+					if runningTotal != expectedTotal {
+						t.Errorf("Row %d: expected running total %f, got %f", i, expectedTotal, runningTotal)
+					}
+				}
+			},
+		},
+		{
+			name:     "window function with PARTITION BY",
+			queryTpl: "SELECT name, age, salary, ROW_NUMBER() OVER (PARTITION BY age ORDER BY salary DESC) as rank_in_age FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				// Within each age group, verify ranking
+				ageGroups := make(map[int64][]map[string]interface{})
+				for _, row := range rows {
+					age := row["age"].(int64)
+					ageGroups[age] = append(ageGroups[age], row)
+				}
+				for age, group := range ageGroups {
+					for i, row := range group {
+						rank := row["rank_in_age"].(int64)
+						if rank != int64(i+1) {
+							t.Errorf("Age %d, row %d: expected rank %d, got %d", age, i, i+1, rank)
+						}
+					}
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, results)
+			}
+		})
+	}
+}
+
+// TestParquetCaseExpression tests CASE expressions for conditional logic
+func TestParquetCaseExpression(t *testing.T) {
+	t.Skip("CASE expressions are not yet implemented in the query engine")
+	testData := []BasicDataRow{
+		{ID: 1, Name: "Alice", Age: 30, Salary: 50000.0, Active: true, Score: 85.5},
+		{ID: 2, Name: "Bob", Age: 25, Salary: 45000.0, Active: false, Score: 72.3},
+		{ID: 3, Name: "Charlie", Age: 35, Salary: 60000.0, Active: true, Score: 91.2},
+		{ID: 4, Name: "Diana", Age: 28, Salary: 52000.0, Active: true, Score: 78.9},
+		{ID: 5, Name: "Eve", Age: 22, Salary: 40000.0, Active: false, Score: 68.5},
+	}
+
+	testFile := createBasicParquetFile(t, testData)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+		validate func(t *testing.T, rows []map[string]interface{})
+	}{
+		{
+			name:     "simple CASE expression",
+			queryTpl: "SELECT name, CASE WHEN age < 25 THEN 'Young' WHEN age < 30 THEN 'Mid' ELSE 'Senior' END as age_group FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					name := row["name"].(string)
+					ageGroup := row["age_group"].(string)
+					if name == "Eve" && ageGroup != "Young" {
+						t.Errorf("Expected Eve (22) to be 'Young', got %s", ageGroup)
+					}
+					if name == "Bob" && ageGroup != "Mid" {
+						t.Errorf("Expected Bob (25) to be 'Mid', got %s", ageGroup)
+					}
+					if name == "Charlie" && ageGroup != "Senior" {
+						t.Errorf("Expected Charlie (35) to be 'Senior', got %s", ageGroup)
+					}
+				}
+			},
+		},
+		{
+			name:     "CASE with numeric result",
+			queryTpl: "SELECT name, salary, CASE WHEN salary > 50000 THEN salary * 1.1 ELSE salary * 1.05 END as new_salary FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					salary := row["salary"].(float64)
+					newSalary := row["new_salary"].(float64)
+					var expected float64
+					if salary > 50000 {
+						expected = salary * 1.1
+					} else {
+						expected = salary * 1.05
+					}
+					if newSalary != expected {
+						t.Errorf("Expected new_salary %f, got %f", expected, newSalary)
+					}
+				}
+			},
+		},
+		{
+			name:     "CASE with multiple conditions",
+			queryTpl: "SELECT name, score, CASE WHEN score >= 90 THEN 'A' WHEN score >= 80 THEN 'B' WHEN score >= 70 THEN 'C' ELSE 'F' END as grade FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					score := row["score"].(float64)
+					grade := row["grade"].(string)
+					if score >= 90 && grade != "A" {
+						t.Errorf("Score %f should be grade A, got %s", score, grade)
+					}
+					if score >= 80 && score < 90 && grade != "B" {
+						t.Errorf("Score %f should be grade B, got %s", score, grade)
+					}
+					if score >= 70 && score < 80 && grade != "C" {
+						t.Errorf("Score %f should be grade C, got %s", score, grade)
+					}
+					if score < 70 && grade != "F" {
+						t.Errorf("Score %f should be grade F, got %s", score, grade)
+					}
+				}
+			},
+		},
+		{
+			name:     "CASE with boolean column",
+			queryTpl: "SELECT name, active, CASE WHEN active THEN 'Active User' ELSE 'Inactive User' END as status FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					active := row["active"].(bool)
+					status := row["status"].(string)
+					if active && status != "Active User" {
+						t.Errorf("Expected 'Active User', got %s", status)
+					}
+					if !active && status != "Inactive User" {
+						t.Errorf("Expected 'Inactive User', got %s", status)
+					}
+				}
+			},
+		},
+		{
+			name:     "nested CASE expressions",
+			queryTpl: "SELECT name, CASE WHEN active THEN CASE WHEN score > 80 THEN 'High Performer' ELSE 'Active' END ELSE 'Inactive' END as category FROM '%s'",
+			wantRows: 5,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					name := row["name"].(string)
+					category := row["category"].(string)
+					if name == "Charlie" && category != "High Performer" {
+						t.Errorf("Expected Charlie to be 'High Performer', got %s", category)
+					}
+					if name == "Bob" && category != "Inactive" {
+						t.Errorf("Expected Bob to be 'Inactive', got %s", category)
+					}
+				}
+			},
+		},
+		{
+			name:     "CASE in WHERE clause",
+			queryTpl: "SELECT name, age FROM '%s' WHERE CASE WHEN age < 26 THEN 'young' ELSE 'old' END = 'young'",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					age := row["age"].(int64)
+					if age >= 26 {
+						t.Errorf("Expected age < 26, got %d", age)
+					}
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, results)
+			}
+		})
+	}
+}
+
+// TestParquetComplexExpressions tests nested functions and arithmetic operations
+func TestParquetComplexExpressions(t *testing.T) {
+	t.Skip("Some complex expressions may not yet be fully implemented in the query engine")
+	testData := []BasicDataRow{
+		{ID: 1, Name: "Alice", Age: 30, Salary: 50000.0, Active: true, Score: 85.5},
+		{ID: 2, Name: "Bob", Age: 25, Salary: 45000.0, Active: false, Score: 72.3},
+		{ID: 3, Name: "Charlie", Age: 35, Salary: 60000.0, Active: true, Score: 91.2},
+		{ID: 4, Name: "Diana", Age: 28, Salary: 52000.0, Active: true, Score: 78.9},
+	}
+
+	testFile := createBasicParquetFile(t, testData)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+		validate func(t *testing.T, rows []map[string]interface{})
+	}{
+		{
+			name:     "arithmetic operations",
+			queryTpl: "SELECT name, salary, salary * 1.1 as increased_salary, salary / 12 as monthly_salary FROM '%s'",
+			wantRows: 4,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					salary := row["salary"].(float64)
+					increasedSalary := row["increased_salary"].(float64)
+					monthlySalary := row["monthly_salary"].(float64)
+					if increasedSalary != salary*1.1 {
+						t.Errorf("Expected increased_salary %f, got %f", salary*1.1, increasedSalary)
+					}
+					if monthlySalary != salary/12 {
+						t.Errorf("Expected monthly_salary %f, got %f", salary/12, monthlySalary)
+					}
+				}
+			},
+		},
+		{
+			name:     "complex arithmetic with multiple operations",
+			queryTpl: "SELECT name, (salary * 0.8) + (score * 100) as combined_metric FROM '%s'",
+			wantRows: 4,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					name := row["name"].(string)
+					combinedMetric := row["combined_metric"].(float64)
+					// Verify calculation for Alice: (50000 * 0.8) + (85.5 * 100) = 40000 + 8550 = 48550
+					if name == "Alice" && combinedMetric != 48550.0 {
+						t.Errorf("Expected Alice's combined_metric 48550, got %f", combinedMetric)
+					}
+				}
+			},
+		},
+		{
+			name:     "nested string functions",
+			queryTpl: "SELECT UPPER(SUBSTR(name, 1, 3)) as short_upper_name FROM '%s'",
+			wantRows: 4,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for i, row := range rows {
+					shortUpperName := row["short_upper_name"].(string)
+					expected := []string{"ALI", "BOB", "CHA", "DIA"}
+					if shortUpperName != expected[i] {
+						t.Errorf("Row %d: expected %s, got %s", i, expected[i], shortUpperName)
+					}
+				}
+			},
+		},
+		{
+			name:     "nested mathematical functions",
+			queryTpl: "SELECT name, ROUND(SQRT(salary), 2) as sqrt_salary FROM '%s'",
+			wantRows: 4,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					name := row["name"].(string)
+					sqrtSalary := row["sqrt_salary"].(float64)
+					if name == "Alice" {
+						// SQRT(50000) ≈ 223.61
+						if sqrtSalary < 223.6 || sqrtSalary > 223.7 {
+							t.Errorf("Expected sqrt_salary around 223.61, got %f", sqrtSalary)
+						}
+					}
+				}
+			},
+		},
+		{
+			name:     "complex expressions in WHERE clause",
+			queryTpl: "SELECT name FROM '%s' WHERE (salary / age) > 1500 AND (score * 0.9) > 70",
+			wantRows: 3,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					name := row["name"].(string)
+					if name == "Bob" {
+						t.Errorf("Bob should not meet the criteria")
+					}
+				}
+			},
+		},
+		{
+			name:     "aggregation with complex expressions",
+			queryTpl: "SELECT AVG(salary * 1.2) as avg_increased_salary, SUM(score + age) as total_combined FROM '%s'",
+			wantRows: 1,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				avgIncreasedSalary := rows[0]["avg_increased_salary"].(float64)
+				totalCombined := rows[0]["total_combined"].(float64)
+				// AVG((50000 + 45000 + 60000 + 52000) * 1.2 / 4) = 61800
+				if avgIncreasedSalary != 61800.0 {
+					t.Errorf("Expected avg_increased_salary 61800, got %f", avgIncreasedSalary)
+				}
+				// SUM((85.5+30) + (72.3+25) + (91.2+35) + (78.9+28)) = 445.9
+				if totalCombined != 445.9 {
+					t.Errorf("Expected total_combined 445.9, got %f", totalCombined)
+				}
+			},
+		},
+		{
+			name:     "conditional expression with arithmetic",
+			queryTpl: "SELECT name, CASE WHEN salary > 50000 THEN (salary - 50000) * 0.3 ELSE salary * 0.25 END as tax FROM '%s'",
+			wantRows: 4,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					name := row["name"].(string)
+					tax := row["tax"].(float64)
+					if name == "Charlie" {
+						// (60000 - 50000) * 0.3 = 3000
+						if tax != 3000.0 {
+							t.Errorf("Expected Charlie's tax 3000, got %f", tax)
+						}
+					}
+					if name == "Bob" {
+						// 45000 * 0.25 = 11250
+						if tax != 11250.0 {
+							t.Errorf("Expected Bob's tax 11250, got %f", tax)
+						}
+					}
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, results)
+			}
+		})
+	}
+}

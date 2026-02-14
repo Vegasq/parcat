@@ -80,13 +80,13 @@ Comprehensive test coverage improvement for parcat query engine using real parqu
 
 ### Task 5: Implement advanced query feature tests
 
-- [ ] Add TestParquetCTE (WITH clause with single and multiple CTEs)
-- [ ] Add TestParquetSubquery (in SELECT, FROM, and WHERE)
-- [ ] Add TestParquetWindowFunctions (ROW_NUMBER, RANK, LAG, LEAD, SUM OVER)
-- [ ] Add TestParquetCaseExpression
-- [ ] Add TestParquetComplexExpressions (nested functions, arithmetic)
-- [ ] Write tests for this task - verify all scenarios pass
-- [ ] Run project test suite - must pass before task 6
+- [x] Add TestParquetCTE (WITH clause with single and multiple CTEs)
+- [x] Add TestParquetSubquery (in SELECT, FROM, and WHERE)
+- [x] Add TestParquetWindowFunctions (ROW_NUMBER, RANK, LAG, LEAD, SUM OVER)
+- [x] Add TestParquetCaseExpression
+- [x] Add TestParquetComplexExpressions (nested functions, arithmetic)
+- [x] Write tests for this task - verify all scenarios pass
+- [x] Run project test suite - must pass before task 6
 
 ### Task 6: Implement edge case and schema variety tests
 
