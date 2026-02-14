@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/segmentio/parquet-go"
+	"github.com/parquet-go/parquet-go"
 	"github.com/vegasq/parcat/reader"
 )
 
@@ -14,25 +14,13 @@ import (
 func createTestParquetFile(t *testing.T, path string, rows []map[string]interface{}) {
 	t.Helper()
 
-	// Convert to typed structs for parquet writer
-	type Row struct {
-		Name string `parquet:"name"`
-		Age  int64  `parquet:"age"`
+	if len(rows) == 0 {
+		t.Fatal("no rows provided to createTestParquetFile")
 	}
 
-	var typedRows []Row
-	for _, row := range rows {
-		typedRow := Row{}
-		if v, ok := row["name"].(string); ok {
-			typedRow.Name = v
-		}
-		if v, ok := row["age"].(int64); ok {
-			typedRow.Age = v
-		} else if v, ok := row["age"].(int); ok {
-			typedRow.Age = int64(v)
-		}
-		typedRows = append(typedRows, typedRow)
-	}
+	// Flexible row type that can handle various column names
+	// We determine which columns are present from the first row
+	firstRow := rows[0]
 
 	f, err := os.Create(path)
 	if err != nil {
@@ -40,12 +28,176 @@ func createTestParquetFile(t *testing.T, path string, rows []map[string]interfac
 	}
 	defer func() { _ = f.Close() }()
 
-	writer := parquet.NewGenericWriter[Row](f)
-	if _, err := writer.Write(typedRows); err != nil {
-		t.Fatalf("failed to write test data: %v", err)
+	// Check which columns are present and create appropriate struct type
+	hasName := false
+	hasAge := false
+	hasID := false
+	hasVal := false
+	hasUserID := false
+
+	for col := range firstRow {
+		switch col {
+		case "name":
+			hasName = true
+		case "age":
+			hasAge = true
+		case "id":
+			hasID = true
+		case "val":
+			hasVal = true
+		case "user_id":
+			hasUserID = true
+		}
 	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("failed to close writer: %v", err)
+
+	// Convert maps to typed rows based on detected columns
+	// This is ugly but necessary because parquet requires static types
+	if hasName && hasAge && !hasID && !hasVal {
+		// Original test case: name + age
+		type Row struct {
+			Name string `parquet:"name"`
+			Age  int64  `parquet:"age"`
+		}
+		var typedRows []Row
+		for _, row := range rows {
+			r := Row{}
+			if v, ok := row["name"].(string); ok {
+				r.Name = v
+			}
+			if v, ok := row["age"].(int64); ok {
+				r.Age = v
+			} else if v, ok := row["age"].(int); ok {
+				r.Age = int64(v)
+			}
+			typedRows = append(typedRows, r)
+		}
+		writer := parquet.NewGenericWriter[Row](f)
+		if _, err := writer.Write(typedRows); err != nil {
+			t.Fatalf("failed to write test data: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+	} else if hasVal && !hasName && !hasAge && !hasID {
+		// CTE test case: val only
+		type Row struct {
+			Val int64 `parquet:"val"`
+		}
+		var typedRows []Row
+		for _, row := range rows {
+			r := Row{}
+			if v, ok := row["val"].(int64); ok {
+				r.Val = v
+			} else if v, ok := row["val"].(int); ok {
+				r.Val = int64(v)
+			}
+			typedRows = append(typedRows, r)
+		}
+		writer := parquet.NewGenericWriter[Row](f)
+		if _, err := writer.Write(typedRows); err != nil {
+			t.Fatalf("failed to write test data: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+	} else if hasID && hasName && !hasVal && !hasUserID {
+		// CTE test case: id + name
+		type Row struct {
+			ID   int64  `parquet:"id"`
+			Name string `parquet:"name"`
+		}
+		var typedRows []Row
+		for _, row := range rows {
+			r := Row{}
+			if v, ok := row["id"].(int64); ok {
+				r.ID = v
+			} else if v, ok := row["id"].(int); ok {
+				r.ID = int64(v)
+			}
+			if v, ok := row["name"].(string); ok {
+				r.Name = v
+			}
+			typedRows = append(typedRows, r)
+		}
+		writer := parquet.NewGenericWriter[Row](f)
+		if _, err := writer.Write(typedRows); err != nil {
+			t.Fatalf("failed to write test data: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+	} else if hasUserID && hasVal && !hasID && !hasName && !hasAge {
+		// JOIN test case: user_id + val
+		type Row struct {
+			UserID int64 `parquet:"user_id"`
+			Val    int64 `parquet:"val"`
+		}
+		var typedRows []Row
+		for _, row := range rows {
+			r := Row{}
+			if v, ok := row["user_id"].(int64); ok {
+				r.UserID = v
+			} else if v, ok := row["user_id"].(int); ok {
+				r.UserID = int64(v)
+			}
+			if v, ok := row["val"].(int64); ok {
+				r.Val = v
+			} else if v, ok := row["val"].(int); ok {
+				r.Val = int64(v)
+			}
+			typedRows = append(typedRows, r)
+		}
+		writer := parquet.NewGenericWriter[Row](f)
+		if _, err := writer.Write(typedRows); err != nil {
+			t.Fatalf("failed to write test data: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+	} else {
+		// Fallback: support all possible columns
+		type Row struct {
+			Name   string `parquet:"name,optional"`
+			Age    int64  `parquet:"age,optional"`
+			ID     int64  `parquet:"id,optional"`
+			Val    int64  `parquet:"val,optional"`
+			UserID int64  `parquet:"user_id,optional"`
+		}
+		var typedRows []Row
+		for _, row := range rows {
+			r := Row{}
+			if v, ok := row["name"].(string); ok {
+				r.Name = v
+			}
+			if v, ok := row["age"].(int64); ok {
+				r.Age = v
+			} else if v, ok := row["age"].(int); ok {
+				r.Age = int64(v)
+			}
+			if v, ok := row["id"].(int64); ok {
+				r.ID = v
+			} else if v, ok := row["id"].(int); ok {
+				r.ID = int64(v)
+			}
+			if v, ok := row["val"].(int64); ok {
+				r.Val = v
+			} else if v, ok := row["val"].(int); ok {
+				r.Val = int64(v)
+			}
+			if v, ok := row["user_id"].(int64); ok {
+				r.UserID = v
+			} else if v, ok := row["user_id"].(int); ok {
+				r.UserID = int64(v)
+			}
+			typedRows = append(typedRows, r)
+		}
+		writer := parquet.NewGenericWriter[Row](f)
+		if _, err := writer.Write(typedRows); err != nil {
+			t.Fatalf("failed to write test data: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
 	}
 }
 
@@ -1133,5 +1285,956 @@ func TestCTE_DuplicateInSameClause(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "duplicate CTE name") {
 		t.Errorf("Expected 'duplicate CTE name' error, got: %v", err)
+	}
+}
+
+// TestEvaluateSelectExpression_FunctionCall tests function call evaluation with context
+func TestEvaluateSelectExpression_FunctionCall(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.parquet")
+
+	rows := []map[string]interface{}{
+		{"name": "alice", "age": int64(30)},
+	}
+	createTestParquetFile(t, testFile, rows)
+
+	r, err := reader.NewReader(testFile)
+	if err != nil {
+		t.Fatalf("NewReader() error = %v", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	ctx := NewExecutionContext(r)
+
+	row := map[string]interface{}{"val": int64(5)}
+
+	// Test UPPER function
+	upperCall := &FunctionCall{
+		Name: "UPPER",
+		Args: []SelectExpression{&ColumnRef{Column: "name"}},
+	}
+
+	// Test with row containing the column
+	testRow := map[string]interface{}{"name": "alice"}
+	result, err := ctx.EvaluateSelectExpression(testRow, upperCall)
+	if err != nil {
+		t.Errorf("EvaluateSelectExpression(UPPER) error = %v", err)
+	}
+	if result != "ALICE" {
+		t.Errorf("UPPER('alice') = %v, want ALICE", result)
+	}
+
+	// Test unknown function
+	unknownCall := &FunctionCall{
+		Name: "UNKNOWN_FUNC",
+		Args: []SelectExpression{&LiteralExpr{Value: int64(1)}},
+	}
+	_, err = ctx.EvaluateSelectExpression(row, unknownCall)
+	if err == nil {
+		t.Error("Expected error for unknown function, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown function") {
+		t.Errorf("Expected 'unknown function' error, got: %v", err)
+	}
+
+	// Test function with wrong arity (too few args)
+	absCallWrong := &FunctionCall{
+		Name: "ABS",
+		Args: []SelectExpression{}, // ABS requires 1 argument
+	}
+	_, err = ctx.EvaluateSelectExpression(row, absCallWrong)
+	if err == nil {
+		t.Error("Expected arity error for ABS with no args, got nil")
+	}
+
+	// Test function with nested scalar subquery argument
+	constFile := filepath.Join(tmpDir, "const.parquet")
+	constRows := []map[string]interface{}{
+		{"val": int64(42)},
+	}
+	createTestParquetFile(t, constFile, constRows)
+
+	subqExpr := &ScalarSubqueryExpr{
+		Query: &Query{
+			TableName: constFile,
+			SelectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "val"}},
+			},
+		},
+	}
+
+	absCallWithSubq := &FunctionCall{
+		Name: "ABS",
+		Args: []SelectExpression{subqExpr},
+	}
+
+	result, err = ctx.EvaluateSelectExpression(row, absCallWithSubq)
+	if err != nil {
+		t.Errorf("EvaluateSelectExpression(ABS with subquery) error = %v", err)
+	}
+	// ABS returns the value as-is for positive numbers, type might be int64 or float64
+	if result != int64(42) && result != float64(42) {
+		t.Errorf("ABS((SELECT 42)) = %v (type %T), want 42", result, result)
+	}
+}
+
+// TestEvaluateSelectExpression_CaseExpr tests CASE expression evaluation
+func TestEvaluateSelectExpression_CaseExpr(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.parquet")
+
+	rows := []map[string]interface{}{
+		{"val": int64(1)},
+	}
+	createTestParquetFile(t, testFile, rows)
+
+	r, err := reader.NewReader(testFile)
+	if err != nil {
+		t.Fatalf("NewReader() error = %v", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	ctx := NewExecutionContext(r)
+
+	// Test CASE with matching WHEN clause
+	caseExpr := &CaseExpr{
+		WhenClauses: []WhenClause{
+			{
+				Condition: &ComparisonExpr{
+					Column:   "val",
+					Operator: TokenEqual,
+					Value:    int64(1),
+				},
+				Result: &LiteralExpr{Value: "matched"},
+			},
+		},
+		ElseExpr: &LiteralExpr{Value: "not_matched"},
+	}
+
+	row := map[string]interface{}{"val": int64(1)}
+	result, err := ctx.EvaluateSelectExpression(row, caseExpr)
+	if err != nil {
+		t.Errorf("EvaluateSelectExpression(CASE) error = %v", err)
+	}
+	if result != "matched" {
+		t.Errorf("CASE result = %v, want matched", result)
+	}
+
+	// Test CASE with no matching WHEN, falling to ELSE
+	row2 := map[string]interface{}{"val": int64(99)}
+	result, err = ctx.EvaluateSelectExpression(row2, caseExpr)
+	if err != nil {
+		t.Errorf("EvaluateSelectExpression(CASE ELSE) error = %v", err)
+	}
+	if result != "not_matched" {
+		t.Errorf("CASE ELSE result = %v, want not_matched", result)
+	}
+
+	// Test CASE with no matching WHEN and no ELSE (returns NULL)
+	caseExprNoElse := &CaseExpr{
+		WhenClauses: []WhenClause{
+			{
+				Condition: &ComparisonExpr{
+					Column:   "val",
+					Operator: TokenEqual,
+					Value:    int64(999),
+				},
+				Result: &LiteralExpr{Value: "never"},
+			},
+		},
+		ElseExpr: nil,
+	}
+
+	result, err = ctx.EvaluateSelectExpression(row2, caseExprNoElse)
+	if err != nil {
+		t.Errorf("EvaluateSelectExpression(CASE no ELSE) error = %v", err)
+	}
+	if result != nil {
+		t.Errorf("CASE with no match and no ELSE should return nil, got %v", result)
+	}
+}
+
+// TestEvaluateScalarSubquery_EdgeCases tests scalar subquery edge cases
+func TestEvaluateScalarSubquery_EdgeCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.parquet")
+
+	rows := []map[string]interface{}{
+		{"id": int64(1)},
+	}
+	createTestParquetFile(t, testFile, rows)
+
+	r, err := reader.NewReader(testFile)
+	if err != nil {
+		t.Fatalf("NewReader() error = %v", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	ctx := NewExecutionContext(r)
+
+	// Test scalar subquery returning no rows (should return NULL)
+	emptyFile := filepath.Join(tmpDir, "empty.parquet")
+	emptyRows := []map[string]interface{}{
+		{"val": int64(1)},
+	}
+	createTestParquetFile(t, emptyFile, emptyRows)
+
+	subqEmpty := &ScalarSubqueryExpr{
+		Query: &Query{
+			TableName: emptyFile,
+			SelectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "val"}},
+			},
+			Filter: &ComparisonExpr{
+				Column:   "val",
+				Operator: TokenEqual,
+				Value:    int64(999), // No match
+			},
+		},
+	}
+
+	row := map[string]interface{}{}
+	result, err := ctx.EvaluateScalarSubquery(row, subqEmpty)
+	if err != nil {
+		t.Errorf("EvaluateScalarSubquery(empty result) error = %v", err)
+	}
+	if result != nil {
+		t.Errorf("Empty scalar subquery should return nil, got %v", result)
+	}
+
+	// Test scalar subquery returning multiple rows (should error)
+	multiFile := filepath.Join(tmpDir, "multi.parquet")
+	multiRows := []map[string]interface{}{
+		{"val": int64(1)},
+		{"val": int64(2)},
+	}
+	createTestParquetFile(t, multiFile, multiRows)
+
+	subqMulti := &ScalarSubqueryExpr{
+		Query: &Query{
+			TableName: multiFile,
+			SelectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "val"}},
+			},
+		},
+	}
+
+	_, err = ctx.EvaluateScalarSubquery(row, subqMulti)
+	if err == nil {
+		t.Error("Expected error for scalar subquery returning multiple rows, got nil")
+	}
+	if !strings.Contains(err.Error(), "more than one row") {
+		t.Errorf("Expected 'more than one row' error, got: %v", err)
+	}
+
+	// Test scalar subquery returning multiple columns (should error)
+	multiColFile := filepath.Join(tmpDir, "multicol.parquet")
+	multiColRows := []map[string]interface{}{
+		{"val": int64(1), "name": "test"},
+	}
+	createTestParquetFile(t, multiColFile, multiColRows)
+
+	subqMultiCol := &ScalarSubqueryExpr{
+		Query: &Query{
+			TableName: multiColFile,
+			SelectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "val"}},
+				{Expr: &ColumnRef{Column: "name"}},
+			},
+		},
+	}
+
+	_, err = ctx.EvaluateScalarSubquery(row, subqMultiCol)
+	if err == nil {
+		t.Error("Expected error for scalar subquery returning multiple columns, got nil")
+	}
+	if !strings.Contains(err.Error(), "exactly one column") {
+		t.Errorf("Expected 'exactly one column' error, got: %v", err)
+	}
+}
+
+// TestExecuteSelect_EdgeCases tests executeSelect edge cases
+func TestExecuteSelect_EdgeCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.parquet")
+
+	rows := []map[string]interface{}{
+		{"id": int64(1)},
+	}
+	createTestParquetFile(t, testFile, rows)
+
+	r, err := reader.NewReader(testFile)
+	if err != nil {
+		t.Fatalf("NewReader() error = %v", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	ctx := NewExecutionContext(r)
+
+	// Test query with no data source (should error)
+	qNoSource := &Query{
+		SelectList: []SelectItem{
+			{Expr: &LiteralExpr{Value: int64(1)}},
+		},
+	}
+
+	_, err = ctx.executeSelect(qNoSource)
+	if err == nil {
+		t.Error("Expected error for query with no data source, got nil")
+	}
+	if !strings.Contains(err.Error(), "no data source") {
+		t.Errorf("Expected 'no data source' error, got: %v", err)
+	}
+
+	// Test forward CTE reference (CTE defined but not yet materialized)
+	ctx.AllCTENames["future_cte"] = true
+
+	qForwardRef := &Query{
+		TableName: "future_cte",
+		SelectList: []SelectItem{
+			{Expr: &ColumnRef{Column: "col"}},
+		},
+	}
+
+	_, err = ctx.executeSelect(qForwardRef)
+	if err == nil {
+		t.Error("Expected error for forward CTE reference, got nil")
+	}
+	if !strings.Contains(err.Error(), "forward CTE reference") {
+		t.Errorf("Expected 'forward CTE reference' error, got: %v", err)
+	}
+
+	// Test query with FROM subquery that has CTEs (should use child context)
+	subqWithCTE := &Query{
+		Subquery: &Query{
+			CTEs: []CTE{
+				{
+					Name: "sub_cte",
+					Query: &Query{
+						TableName: testFile,
+						SelectList: []SelectItem{
+							{Expr: &ColumnRef{Column: "id"}},
+						},
+					},
+				},
+			},
+			TableName: "sub_cte",
+			SelectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "id"}},
+			},
+		},
+		SelectList: []SelectItem{
+			{Expr: &ColumnRef{Column: "id"}},
+		},
+	}
+
+	results, err := ctx.executeSelect(subqWithCTE)
+	if err != nil {
+		t.Errorf("executeSelect(subquery with CTE) error = %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(results))
+	}
+}
+
+// TestEvaluateExpression_BinaryExpr tests binary expression evaluation with subqueries
+func TestEvaluateExpression_BinaryExpr(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.parquet")
+
+	rows := []map[string]interface{}{
+		{"id": int64(1)},
+	}
+	createTestParquetFile(t, testFile, rows)
+
+	r, err := reader.NewReader(testFile)
+	if err != nil {
+		t.Fatalf("NewReader() error = %v", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	ctx := NewExecutionContext(r)
+
+	// Test AND operator
+	andExpr := &BinaryExpr{
+		Left: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenEqual,
+			Value:    int64(1),
+		},
+		Operator: TokenAnd,
+		Right: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenGreater,
+			Value:    int64(0),
+		},
+	}
+
+	row := map[string]interface{}{"id": int64(1)}
+	result, err := ctx.EvaluateExpression(row, andExpr)
+	if err != nil {
+		t.Errorf("EvaluateExpression(AND) error = %v", err)
+	}
+	if !result {
+		t.Error("AND expression should evaluate to true")
+	}
+
+	// Test OR operator
+	orExpr := &BinaryExpr{
+		Left: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenEqual,
+			Value:    int64(999),
+		},
+		Operator: TokenOr,
+		Right: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenEqual,
+			Value:    int64(1),
+		},
+	}
+
+	result, err = ctx.EvaluateExpression(row, orExpr)
+	if err != nil {
+		t.Errorf("EvaluateExpression(OR) error = %v", err)
+	}
+	if !result {
+		t.Error("OR expression should evaluate to true")
+	}
+
+	// Test unsupported operator (TokenEqual is not a boolean operator for BinaryExpr)
+	unsupportedExpr := &BinaryExpr{
+		Left: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenEqual,
+			Value:    int64(1),
+		},
+		Operator: TokenEqual, // Not TokenAnd or TokenOr - should fail
+		Right: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenEqual,
+			Value:    int64(1),
+		},
+	}
+
+	_, err = ctx.EvaluateExpression(row, unsupportedExpr)
+	if err == nil {
+		t.Error("Expected error for unsupported binary operator, got nil")
+	}
+	if !strings.Contains(err.Error(), "unsupported binary operator") {
+		t.Errorf("Expected 'unsupported binary operator' error, got: %v", err)
+	}
+}
+
+// TestEvaluateExpression_EXISTS tests EXISTS expression evaluation
+func TestEvaluateExpression_EXISTS(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.parquet")
+
+	rows := []map[string]interface{}{
+		{"id": int64(1)},
+	}
+	createTestParquetFile(t, testFile, rows)
+
+	r, err := reader.NewReader(testFile)
+	if err != nil {
+		t.Fatalf("NewReader() error = %v", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	ctx := NewExecutionContext(r)
+
+	// Test EXISTS with results
+	existsExpr := &ExistsExpr{
+		Subquery: &Query{
+			TableName: testFile,
+			SelectList: []SelectItem{
+				{Expr: &LiteralExpr{Value: int64(1)}},
+			},
+		},
+		Negate: false,
+	}
+
+	row := map[string]interface{}{}
+	result, err := ctx.EvaluateExpression(row, existsExpr)
+	if err != nil {
+		t.Errorf("EvaluateExpression(EXISTS) error = %v", err)
+	}
+	if !result {
+		t.Error("EXISTS should return true when subquery has rows")
+	}
+
+	// Test NOT EXISTS with results
+	notExistsExpr := &ExistsExpr{
+		Subquery: &Query{
+			TableName: testFile,
+			SelectList: []SelectItem{
+				{Expr: &LiteralExpr{Value: int64(1)}},
+			},
+		},
+		Negate: true,
+	}
+
+	result, err = ctx.EvaluateExpression(row, notExistsExpr)
+	if err != nil {
+		t.Errorf("EvaluateExpression(NOT EXISTS) error = %v", err)
+	}
+	if result {
+		t.Error("NOT EXISTS should return false when subquery has rows")
+	}
+
+	// Test EXISTS with no results
+	existsEmptyExpr := &ExistsExpr{
+		Subquery: &Query{
+			TableName: testFile,
+			SelectList: []SelectItem{
+				{Expr: &LiteralExpr{Value: int64(1)}},
+			},
+			Filter: &ComparisonExpr{
+				Column:   "id",
+				Operator: TokenEqual,
+				Value:    int64(999),
+			},
+		},
+		Negate: false,
+	}
+
+	result, err = ctx.EvaluateExpression(row, existsEmptyExpr)
+	if err != nil {
+		t.Errorf("EvaluateExpression(EXISTS empty) error = %v", err)
+	}
+	if result {
+		t.Error("EXISTS should return false when subquery has no rows")
+	}
+}
+
+// TestEvaluateExpression_InSubquery tests IN subquery expression evaluation
+func TestEvaluateExpression_InSubquery(t *testing.T) {
+	tmpDir := t.TempDir()
+	valuesFile := filepath.Join(tmpDir, "values.parquet")
+
+	rows := []map[string]interface{}{
+		{"val": int64(1)},
+		{"val": int64(2)},
+		{"val": int64(3)},
+	}
+	createTestParquetFile(t, valuesFile, rows)
+
+	r, err := reader.NewReader(valuesFile)
+	if err != nil {
+		t.Fatalf("NewReader() error = %v", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	ctx := NewExecutionContext(r)
+
+	// Test IN with matching value
+	inExpr := &InSubqueryExpr{
+		Column: "id",
+		Subquery: &Query{
+			TableName: valuesFile,
+			SelectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "val"}},
+			},
+		},
+		Negate: false,
+	}
+
+	row := map[string]interface{}{"id": int64(2)}
+	result, err := ctx.EvaluateExpression(row, inExpr)
+	if err != nil {
+		t.Errorf("EvaluateExpression(IN) error = %v", err)
+	}
+	if !result {
+		t.Error("IN should return true when value matches")
+	}
+
+	// Test IN with non-matching value
+	row2 := map[string]interface{}{"id": int64(999)}
+	result, err = ctx.EvaluateExpression(row2, inExpr)
+	if err != nil {
+		t.Errorf("EvaluateExpression(IN no match) error = %v", err)
+	}
+	if result {
+		t.Error("IN should return false when value doesn't match")
+	}
+
+	// Test NOT IN
+	notInExpr := &InSubqueryExpr{
+		Column: "id",
+		Subquery: &Query{
+			TableName: valuesFile,
+			SelectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "val"}},
+			},
+		},
+		Negate: true,
+	}
+
+	result, err = ctx.EvaluateExpression(row2, notInExpr)
+	if err != nil {
+		t.Errorf("EvaluateExpression(NOT IN) error = %v", err)
+	}
+	if !result {
+		t.Error("NOT IN should return true when value doesn't match")
+	}
+
+	// Test IN with missing column
+	rowMissing := map[string]interface{}{"other": int64(1)}
+	result, err = ctx.EvaluateExpression(rowMissing, inExpr)
+	if err != nil {
+		t.Errorf("EvaluateExpression(IN missing col) error = %v", err)
+	}
+	if result {
+		t.Error("IN should return false when column is missing")
+	}
+
+	// Test IN with subquery returning multiple columns (should error)
+	multiColFile := filepath.Join(tmpDir, "multicol.parquet")
+	multiColRows := []map[string]interface{}{
+		{"val": int64(1), "name": "test"},
+	}
+	createTestParquetFile(t, multiColFile, multiColRows)
+
+	inMultiColExpr := &InSubqueryExpr{
+		Column: "id",
+		Subquery: &Query{
+			TableName: multiColFile,
+			SelectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "val"}},
+				{Expr: &ColumnRef{Column: "name"}},
+			},
+		},
+		Negate: false,
+	}
+
+	_, err = ctx.EvaluateExpression(row, inMultiColExpr)
+	if err == nil {
+		t.Error("Expected error for IN subquery with multiple columns, got nil")
+	}
+	if !strings.Contains(err.Error(), "exactly one column") {
+		t.Errorf("Expected 'exactly one column' error, got: %v", err)
+	}
+}
+
+// TestExecuteJoin_WithSubquery tests JOIN with subquery
+func TestExecuteJoin_WithSubquery(t *testing.T) {
+	tmpDir := t.TempDir()
+	leftFile := filepath.Join(tmpDir, "left.parquet")
+	rightFile := filepath.Join(tmpDir, "right.parquet")
+
+	leftRows := []map[string]interface{}{
+		{"id": int64(1), "name": "Alice"},
+	}
+	createTestParquetFile(t, leftFile, leftRows)
+
+	rightRows := []map[string]interface{}{
+		{"val": int64(100)},
+	}
+	createTestParquetFile(t, rightFile, rightRows)
+
+	r, err := reader.NewReader(leftFile)
+	if err != nil {
+		t.Fatalf("NewReader() error = %v", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	ctx := NewExecutionContext(r)
+
+	// Read left rows
+	leftData, err := reader.ReadMultipleFiles(leftFile)
+	if err != nil {
+		t.Fatalf("ReadMultipleFiles(left) error = %v", err)
+	}
+
+	// JOIN with subquery - select only val to avoid column collision
+	join := Join{
+		Type: JoinInner,
+		Subquery: &Query{
+			TableName: rightFile,
+			SelectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "val"}},
+			},
+		},
+		// Simple condition that always matches (id = 1)
+		Condition: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenEqual,
+			Value:    int64(1),
+		},
+	}
+
+	results, err := ctx.executeJoin(leftData, "", join)
+	if err != nil {
+		t.Errorf("executeJoin(with subquery) error = %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(results))
+	}
+	if len(results) > 0 {
+		// Verify we have both name and val in the result
+		if results[0]["name"] != "Alice" {
+			t.Errorf("name = %v, want Alice", results[0]["name"])
+		}
+		if results[0]["val"] != int64(100) {
+			t.Errorf("val = %v, want 100", results[0]["val"])
+		}
+	}
+}
+
+// TestMergeRows_ColumnCollision tests mergeRows with column name collision
+func TestMergeRows_ColumnCollision(t *testing.T) {
+	left := map[string]interface{}{
+		"id":   int64(1),
+		"name": "Alice",
+	}
+
+	right := map[string]interface{}{
+		"id":  int64(1), // Collision with left
+		"val": int64(100),
+	}
+
+	_, err := mergeRows(left, right)
+	if err == nil {
+		t.Error("Expected error for column name collision, got nil")
+	}
+	if !strings.Contains(err.Error(), "collision") {
+		t.Errorf("Expected 'collision' error, got: %v", err)
+	}
+}
+
+// TestMergeRows_FileColumn tests mergeRows with _file column handling
+func TestMergeRows_FileColumn(t *testing.T) {
+	left := map[string]interface{}{
+		"id":    int64(1),
+		"_file": "left.parquet",
+	}
+
+	right := map[string]interface{}{
+		"val":   int64(100),
+		"_file": "right.parquet",
+	}
+
+	merged, err := mergeRows(left, right)
+	if err != nil {
+		t.Errorf("mergeRows() error = %v", err)
+	}
+
+	// _file columns should be renamed to _file_left and _file_right
+	if merged["_file_left"] != "left.parquet" {
+		t.Errorf("_file_left = %v, want left.parquet", merged["_file_left"])
+	}
+	if merged["_file_right"] != "right.parquet" {
+		t.Errorf("_file_right = %v, want right.parquet", merged["_file_right"])
+	}
+	if _, exists := merged["_file"]; exists {
+		t.Error("_file should not exist in merged row")
+	}
+}
+
+// TestCreateNullRow tests createNullRow helper
+func TestCreateNullRow(t *testing.T) {
+	// Test with non-empty rows
+	rows := []map[string]interface{}{
+		{"col1": "value1", "col2": int64(123)},
+	}
+
+	nullRow := createNullRow(rows)
+	if nullRow == nil {
+		t.Fatal("createNullRow returned nil")
+	}
+
+	// All columns should exist with nil values
+	if nullRow["col1"] != nil {
+		t.Errorf("col1 should be nil, got %v", nullRow["col1"])
+	}
+	if nullRow["col2"] != nil {
+		t.Errorf("col2 should be nil, got %v", nullRow["col2"])
+	}
+
+	// Test with empty rows
+	emptyNullRow := createNullRow([]map[string]interface{}{})
+	if emptyNullRow == nil {
+		t.Fatal("createNullRow with empty input returned nil")
+	}
+	if len(emptyNullRow) != 0 {
+		t.Errorf("createNullRow with empty input should return empty map, got %v", emptyNullRow)
+	}
+}
+
+// TestApplyTableAlias tests applyTableAlias helper
+func TestApplyTableAlias(t *testing.T) {
+	rows := []map[string]interface{}{
+		{"col1": "value1", "col2": int64(123), "_file": "test.parquet"},
+	}
+
+	// Test with alias
+	aliased := applyTableAlias(rows, "t")
+	if len(aliased) != 1 {
+		t.Fatalf("Expected 1 row, got %d", len(aliased))
+	}
+
+	// Columns should be prefixed except _file
+	if aliased[0]["t.col1"] != "value1" {
+		t.Errorf("t.col1 = %v, want value1", aliased[0]["t.col1"])
+	}
+	if aliased[0]["t.col2"] != int64(123) {
+		t.Errorf("t.col2 = %v, want 123", aliased[0]["t.col2"])
+	}
+	if aliased[0]["_file"] != "test.parquet" {
+		t.Errorf("_file should not be aliased, got %v", aliased[0]["_file"])
+	}
+
+	// Original column names should not exist
+	if _, exists := aliased[0]["col1"]; exists {
+		t.Error("col1 should not exist after aliasing")
+	}
+
+	// Test with empty alias
+	noAlias := applyTableAlias(rows, "")
+	if len(noAlias) != 1 {
+		t.Fatalf("Expected 1 row, got %d", len(noAlias))
+	}
+	// Should return rows unchanged
+	if noAlias[0]["col1"] != "value1" {
+		t.Errorf("With empty alias, col1 = %v, want value1", noAlias[0]["col1"])
+	}
+}
+
+// TestExecuteJoin_EmptySides tests join operations with empty sides
+func TestExecuteJoin_EmptySides(t *testing.T) {
+	// LEFT JOIN with empty right side
+	leftRows := []map[string]interface{}{
+		{"id": int64(1), "name": "Alice"},
+	}
+	rightRowsEmpty := []map[string]interface{}{}
+
+	condition := &ComparisonExpr{
+		Column:   "id",
+		Operator: TokenEqual,
+		Value:    int64(1),
+	}
+
+	result, err := executeLeftJoin(leftRows, rightRowsEmpty, condition)
+	if err != nil {
+		t.Errorf("executeLeftJoin with empty right error = %v", err)
+	}
+	// Should return left rows unchanged
+	if len(result) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(result))
+	}
+
+	// RIGHT JOIN with empty left side
+	result, err = executeRightJoin([]map[string]interface{}{}, rightRowsEmpty, condition)
+	if err != nil {
+		t.Errorf("executeRightJoin with empty left error = %v", err)
+	}
+	// Should return empty result
+	if len(result) != 0 {
+		t.Errorf("Expected 0 rows, got %d", len(result))
+	}
+
+	// FULL JOIN with empty left side
+	rightRows := []map[string]interface{}{
+		{"id": int64(1), "val": int64(100)},
+	}
+	result, err = executeFullJoin([]map[string]interface{}{}, rightRows, condition)
+	if err != nil {
+		t.Errorf("executeFullJoin with empty left error = %v", err)
+	}
+	// Should return right rows unchanged
+	if len(result) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(result))
+	}
+
+	// FULL JOIN with empty right side
+	result, err = executeFullJoin(leftRows, []map[string]interface{}{}, condition)
+	if err != nil {
+		t.Errorf("executeFullJoin with empty right error = %v", err)
+	}
+	// Should return left rows unchanged
+	if len(result) != 1 {
+		t.Errorf("Expected 1 row, got %d", len(result))
+	}
+}
+
+// TestExecuteJoin_ErrorHandling tests join error conditions
+func TestExecuteJoin_ErrorHandling(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.parquet")
+
+	rows := []map[string]interface{}{
+		{"id": int64(1)},
+	}
+	createTestParquetFile(t, testFile, rows)
+
+	r, err := reader.NewReader(testFile)
+	if err != nil {
+		t.Fatalf("NewReader() error = %v", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	ctx := NewExecutionContext(r)
+
+	leftData := []map[string]interface{}{
+		{"id": int64(1)},
+	}
+
+	// Test JOIN with no table name or subquery
+	joinNoSource := Join{
+		Type: JoinInner,
+		Condition: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenEqual,
+			Value:    int64(1),
+		},
+	}
+
+	_, err = ctx.executeJoin(leftData, "", joinNoSource)
+	if err == nil {
+		t.Error("Expected error for JOIN with no table name or subquery, got nil")
+	}
+	if !strings.Contains(err.Error(), "requires table name or subquery") {
+		t.Errorf("Expected 'requires table name or subquery' error, got: %v", err)
+	}
+
+	// Test JOIN with forward CTE reference
+	ctx.AllCTENames["future_cte"] = true
+
+	joinForwardCTE := Join{
+		Type:      JoinInner,
+		TableName: "future_cte",
+		Condition: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenEqual,
+			Value:    int64(1),
+		},
+	}
+
+	_, err = ctx.executeJoin(leftData, "", joinForwardCTE)
+	if err == nil {
+		t.Error("Expected error for forward CTE reference in JOIN, got nil")
+	}
+	if !strings.Contains(err.Error(), "forward CTE reference") {
+		t.Errorf("Expected 'forward CTE reference' error, got: %v", err)
+	}
+
+	// Test unsupported join type
+	joinUnsupported := Join{
+		Type:      JoinType(999), // Invalid join type
+		TableName: testFile,
+		Condition: &ComparisonExpr{
+			Column:   "id",
+			Operator: TokenEqual,
+			Value:    int64(1),
+		},
+	}
+
+	_, err = ctx.executeJoin(leftData, "", joinUnsupported)
+	if err == nil {
+		t.Error("Expected error for unsupported join type, got nil")
+	}
+	if !strings.Contains(err.Error(), "unsupported join type") {
+		t.Errorf("Expected 'unsupported join type' error, got: %v", err)
 	}
 }

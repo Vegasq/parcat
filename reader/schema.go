@@ -3,7 +3,7 @@ package reader
 import (
 	"fmt"
 
-	"github.com/segmentio/parquet-go"
+	"github.com/parquet-go/parquet-go"
 )
 
 // SchemaInfo represents metadata about a single column in a Parquet file.

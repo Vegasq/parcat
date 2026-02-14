@@ -2,7 +2,6 @@ package query
 
 import (
 	"fmt"
-	"math"
 	"strings"
 )
 
@@ -395,9 +394,4 @@ func validateSelectListWithGroupBy(selectList []SelectItem, groupByColumns []str
 	}
 
 	return nil
-}
-
-// init ensures math package is available
-func init() {
-	_ = math.Abs(0)
 }

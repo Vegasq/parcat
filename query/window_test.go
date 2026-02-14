@@ -464,3 +464,398 @@ func TestParseWindowFunction(t *testing.T) {
 		})
 	}
 }
+
+func TestHasSubqueryInWHERE(t *testing.T) {
+	tests := []struct {
+		name     string
+		filter   Expression
+		expected bool
+	}{
+		{
+			name:     "nil filter",
+			filter:   nil,
+			expected: false,
+		},
+		{
+			name: "InSubqueryExpr",
+			filter: &InSubqueryExpr{
+				Column:   "id",
+				Subquery: &Query{},
+			},
+			expected: true,
+		},
+		{
+			name:     "ExistsExpr",
+			filter:   &ExistsExpr{Subquery: &Query{}},
+			expected: true,
+		},
+		{
+			name: "BinaryExpr with subquery in left",
+			filter: &BinaryExpr{
+				Operator: TokenAnd,
+				Left: &InSubqueryExpr{
+					Column:   "id",
+					Subquery: &Query{},
+				},
+				Right: &ComparisonExpr{
+					Column:   "status",
+					Operator: TokenEqual,
+					Value:    "active",
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "BinaryExpr with subquery in right",
+			filter: &BinaryExpr{
+				Operator: TokenOr,
+				Left: &ComparisonExpr{
+					Column:   "status",
+					Operator: TokenEqual,
+					Value:    "active",
+				},
+				Right: &ExistsExpr{Subquery: &Query{}},
+			},
+			expected: true,
+		},
+		{
+			name: "Simple ComparisonExpr without subquery",
+			filter: &ComparisonExpr{
+				Column:   "status",
+				Operator: TokenEqual,
+				Value:    "active",
+			},
+			expected: false,
+		},
+		{
+			name:     "Simple IsNullExpr",
+			filter:   &IsNullExpr{Column: "active"},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := HasSubqueryInWHERE(tt.filter)
+			if result != tt.expected {
+				t.Errorf("HasSubqueryInWHERE() = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHasSubqueryInExpression(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     Expression
+		expected bool
+	}{
+		{
+			name:     "nil expression",
+			expr:     nil,
+			expected: false,
+		},
+		{
+			name: "InSubqueryExpr",
+			expr: &InSubqueryExpr{
+				Column:   "id",
+				Subquery: &Query{},
+			},
+			expected: true,
+		},
+		{
+			name:     "ExistsExpr",
+			expr:     &ExistsExpr{Subquery: &Query{}},
+			expected: true,
+		},
+		{
+			name: "Nested BinaryExpr with deep subquery",
+			expr: &BinaryExpr{
+				Operator: TokenAnd,
+				Left: &ComparisonExpr{
+					Column:   "a",
+					Operator: TokenEqual,
+					Value:    int64(1),
+				},
+				Right: &BinaryExpr{
+					Operator: TokenOr,
+					Left: &ComparisonExpr{
+						Column:   "b",
+						Operator: TokenGreater,
+						Value:    int64(5),
+					},
+					Right: &InSubqueryExpr{
+						Column:   "c",
+						Subquery: &Query{},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "BinaryExpr without subquery",
+			expr: &BinaryExpr{
+				Operator: TokenAnd,
+				Left: &ComparisonExpr{
+					Column:   "a",
+					Operator: TokenEqual,
+					Value:    int64(1),
+				},
+				Right: &ComparisonExpr{
+					Column:   "b",
+					Operator: TokenGreater,
+					Value:    int64(5),
+				},
+			},
+			expected: false,
+		},
+		{
+			name:     "IsNullExpr",
+			expr:     &IsNullExpr{Column: "name"},
+			expected: false,
+		},
+		{
+			name: "LikeExpr",
+			expr: &LikeExpr{
+				Column:  "name",
+				Pattern: "%test%",
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasSubqueryInExpression(tt.expr)
+			if result != tt.expected {
+				t.Errorf("hasSubqueryInExpression() = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHasSubqueryInSELECT(t *testing.T) {
+	tests := []struct {
+		name       string
+		selectList []SelectItem
+		expected   bool
+	}{
+		{
+			name:       "empty select list",
+			selectList: []SelectItem{},
+			expected:   false,
+		},
+		{
+			name: "SelectItem with ScalarSubqueryExpr",
+			selectList: []SelectItem{
+				{Expr: &ScalarSubqueryExpr{Query: &Query{}}},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectItem with FunctionCall containing ScalarSubquery",
+			selectList: []SelectItem{
+				{
+					Expr: &FunctionCall{
+						Name: "COALESCE",
+						Args: []SelectExpression{
+							&ScalarSubqueryExpr{Query: &Query{}},
+							&LiteralExpr{Value: 0},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectItem with CaseExpr with ScalarSubquery in ELSE",
+			selectList: []SelectItem{
+				{
+					Expr: &CaseExpr{
+						WhenClauses: []WhenClause{
+							{
+								Result: &LiteralExpr{Value: 1},
+							},
+						},
+						ElseExpr: &ScalarSubqueryExpr{Query: &Query{}},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectItem with CaseExpr with ScalarSubquery in WHEN result",
+			selectList: []SelectItem{
+				{
+					Expr: &CaseExpr{
+						WhenClauses: []WhenClause{
+							{
+								Result: &ScalarSubqueryExpr{Query: &Query{}},
+							},
+						},
+						ElseExpr: &LiteralExpr{Value: 0},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Multiple SelectItems with subquery in second",
+			selectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "name"}},
+				{Expr: &ScalarSubqueryExpr{Query: &Query{}}},
+			},
+			expected: true,
+		},
+		{
+			name: "SelectItems without subqueries",
+			selectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "name"}},
+				{Expr: &LiteralExpr{Value: 42}},
+				{
+					Expr: &FunctionCall{
+						Name: "UPPER",
+						Args: []SelectExpression{&ColumnRef{Column: "name"}},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := HasSubqueryInSELECT(tt.selectList)
+			if result != tt.expected {
+				t.Errorf("HasSubqueryInSELECT() = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHasScalarSubquery(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     SelectExpression
+		expected bool
+	}{
+		{
+			name:     "nil expression",
+			expr:     nil,
+			expected: false,
+		},
+		{
+			name:     "ScalarSubqueryExpr",
+			expr:     &ScalarSubqueryExpr{Query: &Query{}},
+			expected: true,
+		},
+		{
+			name: "FunctionCall with ScalarSubquery argument",
+			expr: &FunctionCall{
+				Name: "COALESCE",
+				Args: []SelectExpression{
+					&ScalarSubqueryExpr{Query: &Query{}},
+					&LiteralExpr{Value: 0},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Nested FunctionCall with deep ScalarSubquery",
+			expr: &FunctionCall{
+				Name: "UPPER",
+				Args: []SelectExpression{
+					&FunctionCall{
+						Name: "CONCAT",
+						Args: []SelectExpression{
+							&ColumnRef{Column: "name"},
+							&ScalarSubqueryExpr{Query: &Query{}},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "FunctionCall without ScalarSubquery",
+			expr: &FunctionCall{
+				Name: "UPPER",
+				Args: []SelectExpression{
+					&ColumnRef{Column: "name"},
+					&LiteralExpr{Value: "test"},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "CaseExpr with ScalarSubquery in ELSE",
+			expr: &CaseExpr{
+				WhenClauses: []WhenClause{
+					{
+						Result: &LiteralExpr{Value: "one"},
+					},
+				},
+				ElseExpr: &ScalarSubqueryExpr{Query: &Query{}},
+			},
+			expected: true,
+		},
+		{
+			name: "CaseExpr with ScalarSubquery in WHEN result",
+			expr: &CaseExpr{
+				WhenClauses: []WhenClause{
+					{
+						Result: &ScalarSubqueryExpr{Query: &Query{}},
+					},
+				},
+				ElseExpr: &LiteralExpr{Value: "default"},
+			},
+			expected: true,
+		},
+		{
+			name: "CaseExpr with ScalarSubquery in multiple WHEN results",
+			expr: &CaseExpr{
+				WhenClauses: []WhenClause{
+					{
+						Result: &LiteralExpr{Value: "one"},
+					},
+					{
+						Result: &ScalarSubqueryExpr{Query: &Query{}},
+					},
+				},
+				ElseExpr: &LiteralExpr{Value: "default"},
+			},
+			expected: true,
+		},
+		{
+			name: "CaseExpr without ScalarSubquery",
+			expr: &CaseExpr{
+				WhenClauses: []WhenClause{
+					{
+						Result: &LiteralExpr{Value: "one"},
+					},
+				},
+				ElseExpr: &LiteralExpr{Value: "default"},
+			},
+			expected: false,
+		},
+		{
+			name:     "ColumnRef",
+			expr:     &ColumnRef{Column: "name"},
+			expected: false,
+		},
+		{
+			name:     "LiteralExpr",
+			expr:     &LiteralExpr{Value: 42},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasScalarSubquery(tt.expr)
+			if result != tt.expected {
+				t.Errorf("hasScalarSubquery() = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}
