@@ -2432,3 +2432,695 @@ func TestParquetComplexExpressions(t *testing.T) {
 		})
 	}
 }
+// TestParquetNullValues tests filtering and aggregating null values
+func TestParquetNullValues(t *testing.T) {
+	// Create test data with nullable fields
+	testData := []ComplexDataRow{
+		{
+			ID:        1,
+			Name:      "Alice",
+			Age:       int64Ptr(30),
+			Timestamp: time.Now(),
+			Salary:    float64Ptr(50000.0),
+			Active:    boolPtr(true),
+			Tags:      []string{"engineer", "senior"},
+			Score:     float64Ptr(85.5),
+		},
+		{
+			ID:        2,
+			Name:      "Bob",
+			Age:       nil, // null age
+			Timestamp: time.Now(),
+			Salary:    float64Ptr(45000.0),
+			Active:    boolPtr(false),
+			Tags:      []string{"engineer"},
+			Score:     nil, // null score
+		},
+		{
+			ID:        3,
+			Name:      "Charlie",
+			Age:       int64Ptr(35),
+			Timestamp: time.Now(),
+			Salary:    nil, // null salary
+			Active:    boolPtr(true),
+			Tags:      []string{"manager"},
+			Score:     float64Ptr(91.2),
+		},
+		{
+			ID:        4,
+			Name:      "Diana",
+			Age:       int64Ptr(28),
+			Timestamp: time.Now(),
+			Salary:    float64Ptr(52000.0),
+			Active:    nil, // null active
+			Tags:      []string{},
+			Score:     float64Ptr(78.9),
+		},
+	}
+
+	testFile := createComplexParquetFile(t, testData)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+		validate func(t *testing.T, rows []map[string]interface{})
+	}{
+		{
+			name:     "filter IS NULL",
+			queryTpl: "SELECT * FROM '%s' WHERE age IS NULL",
+			wantRows: 1,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 1 {
+					t.Errorf("Expected 1 row with null age")
+				}
+			},
+		},
+		{
+			name:     "filter IS NOT NULL",
+			queryTpl: "SELECT * FROM '%s' WHERE salary IS NOT NULL",
+			wantRows: 3,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					if row["salary"] == nil {
+						t.Errorf("Expected non-null salary, got nil")
+					}
+				}
+			},
+		},
+		{
+			name:     "count with nulls",
+			queryTpl: "SELECT COUNT(*) as total, COUNT(age) as age_count, COUNT(salary) as salary_count FROM '%s'",
+			wantRows: 1,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 1 {
+					t.Fatalf("Expected 1 row, got %d", len(rows))
+				}
+				total := rows[0]["total"].(int64)
+				ageCount := rows[0]["age_count"].(int64)
+				salaryCount := rows[0]["salary_count"].(int64)
+
+				if total != 4 {
+					t.Errorf("Expected total = 4, got %d", total)
+				}
+				if ageCount != 3 {
+					t.Errorf("Expected age_count = 3, got %d", ageCount)
+				}
+				if salaryCount != 3 {
+					t.Errorf("Expected salary_count = 3, got %d", salaryCount)
+				}
+			},
+		},
+		{
+			name:     "aggregate with nulls - SUM ignores nulls",
+			queryTpl: "SELECT SUM(salary) as total_salary FROM '%s'",
+			wantRows: 1,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 1 {
+					t.Fatalf("Expected 1 row, got %d", len(rows))
+				}
+				// Sum should be 50000 + 45000 + 52000 = 147000 (ignoring null)
+				total := rows[0]["total_salary"].(float64)
+				expected := 147000.0
+				if total != expected {
+					t.Errorf("Expected total_salary = %.2f, got %.2f", expected, total)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, results)
+			}
+		})
+	}
+}
+
+// TestParquetEmptyFile tests queries on empty parquet files
+func TestParquetEmptyFile(t *testing.T) {
+	testFile := createEmptyParquetFile(t)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+	}{
+		{
+			name:     "select all from empty file",
+			queryTpl: "SELECT * FROM '%s'",
+			wantRows: 0,
+		},
+		{
+			name:     "select with filter on empty file",
+			queryTpl: "SELECT * FROM '%s' WHERE age > 25",
+			wantRows: 0,
+		},
+		{
+			name:     "count on empty file",
+			queryTpl: "SELECT COUNT(*) as total FROM '%s'",
+			wantRows: 1, // COUNT(*) returns 0, but there's still 1 result row
+		},
+		{
+			name:     "aggregate on empty file",
+			queryTpl: "SELECT SUM(salary) as total, AVG(age) as avg_age FROM '%s'",
+			wantRows: 1, // Aggregates on empty set return 1 row with nulls/zeros
+		},
+		{
+			name:     "group by on empty file",
+			queryTpl: "SELECT age, COUNT(*) as cnt FROM '%s' GROUP BY age",
+			wantRows: 0, // GROUP BY on empty set returns 0 rows
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			// For COUNT(*) on empty file, verify the count is 0
+			if tt.name == "count on empty file" && len(results) > 0 {
+				if count, ok := results[0]["total"].(int64); ok {
+					if count != 0 {
+						t.Errorf("Expected count = 0, got %d", count)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestParquetComplexSchema tests complex nested schemas
+func TestParquetComplexSchema(t *testing.T) {
+	// ComplexDataRow already has arrays and nullable fields
+	testData := []ComplexDataRow{
+		{
+			ID:        1,
+			Name:      "Alice",
+			Age:       int64Ptr(30),
+			Timestamp: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+			Salary:    float64Ptr(50000.0),
+			Active:    boolPtr(true),
+			Tags:      []string{"engineer", "senior", "golang"},
+			Score:     float64Ptr(85.5),
+		},
+		{
+			ID:        2,
+			Name:      "Bob",
+			Age:       int64Ptr(25),
+			Timestamp: time.Date(2024, 1, 2, 12, 0, 0, 0, time.UTC),
+			Salary:    float64Ptr(45000.0),
+			Active:    boolPtr(false),
+			Tags:      []string{"engineer"},
+			Score:     float64Ptr(72.3),
+		},
+		{
+			ID:        3,
+			Name:      "Charlie",
+			Age:       int64Ptr(35),
+			Timestamp: time.Date(2024, 1, 3, 12, 0, 0, 0, time.UTC),
+			Salary:    float64Ptr(60000.0),
+			Active:    boolPtr(true),
+			Tags:      []string{"manager", "senior"},
+			Score:     float64Ptr(91.2),
+		},
+	}
+
+	testFile := createComplexParquetFile(t, testData)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+		validate func(t *testing.T, rows []map[string]interface{})
+	}{
+		{
+			name:     "select all from complex schema",
+			queryTpl: "SELECT * FROM '%s'",
+			wantRows: 3,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 3 {
+					t.Errorf("Expected 3 rows, got %d", len(rows))
+				}
+			},
+		},
+		{
+			name:     "filter on nullable field",
+			queryTpl: "SELECT * FROM '%s' WHERE age > 25",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					// Verify we got the right records (age 30 and 35)
+					id := row["id"].(int64)
+					if id != 1 && id != 3 {
+						t.Errorf("Unexpected ID in filtered results: %d", id)
+					}
+				}
+			},
+		},
+		{
+			name:     "select specific columns from complex schema",
+			queryTpl: "SELECT id, name, timestamp FROM '%s' ORDER BY id",
+			wantRows: 3,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 3 {
+					t.Fatalf("Expected 3 rows, got %d", len(rows))
+				}
+				// Verify column selection
+				for _, row := range rows {
+					if _, ok := row["id"]; !ok {
+						t.Error("Missing id column")
+					}
+					if _, ok := row["name"]; !ok {
+						t.Error("Missing name column")
+					}
+					if _, ok := row["timestamp"]; !ok {
+						t.Error("Missing timestamp column")
+					}
+					// Should not have other columns
+					if len(row) > 3 {
+						t.Errorf("Expected 3 columns, got %d", len(row))
+					}
+				}
+			},
+		},
+		{
+			name:     "aggregate on complex schema",
+			queryTpl: "SELECT COUNT(*) as total, AVG(salary) as avg_salary FROM '%s'",
+			wantRows: 1,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 1 {
+					t.Fatalf("Expected 1 row, got %d", len(rows))
+				}
+				total := rows[0]["total"].(int64)
+				avgSalary := rows[0]["avg_salary"].(float64)
+
+				if total != 3 {
+					t.Errorf("Expected total = 3, got %d", total)
+				}
+				expectedAvg := (50000.0 + 45000.0 + 60000.0) / 3.0
+				if avgSalary != expectedAvg {
+					t.Errorf("Expected avg_salary = %.2f, got %.2f", expectedAvg, avgSalary)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, results)
+			}
+		})
+	}
+}
+
+// TestParquetLargeDataset tests performance with 1000+ rows
+func TestParquetLargeDataset(t *testing.T) {
+	// Generate 1000 rows
+	testData := make([]BasicDataRow, 1000)
+	for i := 0; i < 1000; i++ {
+		testData[i] = BasicDataRow{
+			ID:     int64(i + 1),
+			Name:   fmt.Sprintf("User_%d", i+1),
+			Age:    int64(20 + (i % 50)),         // Ages 20-69
+			Salary: float64(30000 + (i * 100)),   // Salaries 30000-129900
+			Active: i%2 == 0,                     // Alternating true/false
+			Score:  float64(50.0 + (i % 50)),     // Scores 50-99
+		}
+	}
+
+	testFile := createBasicParquetFile(t, testData)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+		validate func(t *testing.T, rows []map[string]interface{})
+	}{
+		{
+			name:     "select all from large dataset",
+			queryTpl: "SELECT * FROM '%s'",
+			wantRows: 1000,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 1000 {
+					t.Errorf("Expected 1000 rows, got %d", len(rows))
+				}
+			},
+		},
+		{
+			name:     "filter on large dataset",
+			queryTpl: "SELECT * FROM '%s' WHERE age >= 50",
+			wantRows: 400, // Ages 50-69, 20 values, 1000/50 = 20 cycles, so 20*20 = 400
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					age := row["age"].(int64)
+					if age < 50 {
+						t.Errorf("Expected age >= 50, got %d", age)
+					}
+				}
+			},
+		},
+		{
+			name:     "aggregate on large dataset",
+			queryTpl: "SELECT COUNT(*) as total, AVG(salary) as avg_salary, MAX(salary) as max_salary, MIN(salary) as min_salary FROM '%s'",
+			wantRows: 1,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 1 {
+					t.Fatalf("Expected 1 row, got %d", len(rows))
+				}
+				total := rows[0]["total"].(int64)
+				if total != 1000 {
+					t.Errorf("Expected total = 1000, got %d", total)
+				}
+				maxSalary := rows[0]["max_salary"].(float64)
+				minSalary := rows[0]["min_salary"].(float64)
+				if maxSalary != 129900.0 {
+					t.Errorf("Expected max_salary = 129900.0, got %.2f", maxSalary)
+				}
+				if minSalary != 30000.0 {
+					t.Errorf("Expected min_salary = 30000.0, got %.2f", minSalary)
+				}
+			},
+		},
+		{
+			name:     "group by on large dataset",
+			queryTpl: "SELECT age, COUNT(*) as cnt FROM '%s' GROUP BY age",
+			wantRows: 50, // 50 unique ages (20-69)
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 50 {
+					t.Errorf("Expected 50 groups, got %d", len(rows))
+				}
+				// Each age group should have 20 records (1000 rows / 50 ages)
+				for _, row := range rows {
+					cnt := row["cnt"].(int64)
+					if cnt != 20 {
+						t.Errorf("Expected count = 20 for each age group, got %d", cnt)
+					}
+				}
+			},
+		},
+		{
+			name:     "limit and offset on large dataset",
+			queryTpl: "SELECT * FROM '%s' ORDER BY id LIMIT 50 OFFSET 100",
+			wantRows: 50,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 50 {
+					t.Errorf("Expected 50 rows, got %d", len(rows))
+				}
+				// First row should be ID 101 (offset 100 means skip first 100)
+				if len(rows) > 0 {
+					firstID := rows[0]["id"].(int64)
+					if firstID != 101 {
+						t.Errorf("Expected first ID = 101, got %d", firstID)
+					}
+					lastID := rows[len(rows)-1]["id"].(int64)
+					if lastID != 150 {
+						t.Errorf("Expected last ID = 150, got %d", lastID)
+					}
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, results)
+			}
+		})
+	}
+}
+
+// TestParquetMixedTypes tests all supported data types in one file
+func TestParquetMixedTypes(t *testing.T) {
+	// Using ComplexDataRow which has multiple types: int64, string, *int64, time.Time, *float64, *bool, []string
+	testData := []ComplexDataRow{
+		{
+			ID:        1,
+			Name:      "Alpha",
+			Age:       int64Ptr(30),
+			Timestamp: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+			Salary:    float64Ptr(75000.0),
+			Active:    boolPtr(true),
+			Tags:      []string{"tag1", "tag2", "tag3"},
+			Score:     float64Ptr(95.5),
+		},
+		{
+			ID:        2,
+			Name:      "Beta",
+			Age:       int64Ptr(45),
+			Timestamp: time.Date(2024, 2, 20, 14, 45, 0, 0, time.UTC),
+			Salary:    float64Ptr(85000.0),
+			Active:    boolPtr(false),
+			Tags:      []string{"tag2", "tag4"},
+			Score:     float64Ptr(88.2),
+		},
+		{
+			ID:        3,
+			Name:      "Gamma",
+			Age:       int64Ptr(28),
+			Timestamp: time.Date(2024, 3, 10, 9, 15, 0, 0, time.UTC),
+			Salary:    float64Ptr(65000.0),
+			Active:    boolPtr(true),
+			Tags:      []string{"tag1"},
+			Score:     float64Ptr(92.8),
+		},
+	}
+
+	testFile := createComplexParquetFile(t, testData)
+
+	tests := []struct {
+		name     string
+		queryTpl string
+		wantRows int
+		validate func(t *testing.T, rows []map[string]interface{})
+	}{
+		{
+			name:     "select all types",
+			queryTpl: "SELECT * FROM '%s'",
+			wantRows: 3,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 3 {
+					t.Errorf("Expected 3 rows, got %d", len(rows))
+				}
+				// Verify all types are present
+				for _, row := range rows {
+					if _, ok := row["id"]; !ok {
+						t.Error("Missing id field")
+					}
+					if _, ok := row["name"]; !ok {
+						t.Error("Missing name field")
+					}
+					if _, ok := row["age"]; !ok {
+						t.Error("Missing age field")
+					}
+					if _, ok := row["timestamp"]; !ok {
+						t.Error("Missing timestamp field")
+					}
+					if _, ok := row["salary"]; !ok {
+						t.Error("Missing salary field")
+					}
+					if _, ok := row["active"]; !ok {
+						t.Error("Missing active field")
+					}
+					if _, ok := row["score"]; !ok {
+						t.Error("Missing score field")
+					}
+				}
+			},
+		},
+		{
+			name:     "filter on int64",
+			queryTpl: "SELECT * FROM '%s' WHERE id > 1",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					id := row["id"].(int64)
+					if id <= 1 {
+						t.Errorf("Expected id > 1, got %d", id)
+					}
+				}
+			},
+		},
+		{
+			name:     "filter on string",
+			queryTpl: "SELECT * FROM '%s' WHERE name = 'Beta'",
+			wantRows: 1,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 1 {
+					t.Fatalf("Expected 1 row, got %d", len(rows))
+				}
+				name := rows[0]["name"].(string)
+				if name != "Beta" {
+					t.Errorf("Expected name = 'Beta', got %s", name)
+				}
+			},
+		},
+		{
+			name:     "filter on float64",
+			queryTpl: "SELECT * FROM '%s' WHERE salary >= 75000",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					salary := row["salary"].(float64)
+					if salary < 75000 {
+						t.Errorf("Expected salary >= 75000, got %.2f", salary)
+					}
+				}
+			},
+		},
+		{
+			name:     "filter on bool",
+			queryTpl: "SELECT * FROM '%s' WHERE active = true",
+			wantRows: 2,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				for _, row := range rows {
+					active := row["active"].(bool)
+					if !active {
+						t.Error("Expected active = true")
+					}
+				}
+			},
+		},
+		{
+			name:     "aggregate mixed types",
+			queryTpl: "SELECT COUNT(*) as cnt, AVG(age) as avg_age, SUM(salary) as total_salary, MAX(score) as max_score FROM '%s'",
+			wantRows: 1,
+			validate: func(t *testing.T, rows []map[string]interface{}) {
+				if len(rows) != 1 {
+					t.Fatalf("Expected 1 row, got %d", len(rows))
+				}
+				cnt := rows[0]["cnt"].(int64)
+				avgAge := rows[0]["avg_age"].(float64)
+				totalSalary := rows[0]["total_salary"].(float64)
+				maxScore := rows[0]["max_score"].(float64)
+
+				if cnt != 3 {
+					t.Errorf("Expected cnt = 3, got %d", cnt)
+				}
+				expectedAvgAge := (30.0 + 45.0 + 28.0) / 3.0
+				if avgAge != expectedAvgAge {
+					t.Errorf("Expected avg_age = %.2f, got %.2f", expectedAvgAge, avgAge)
+				}
+				if totalSalary != 225000.0 {
+					t.Errorf("Expected total_salary = 225000.0, got %.2f", totalSalary)
+				}
+				if maxScore != 95.5 {
+					t.Errorf("Expected max_score = 95.5, got %.2f", maxScore)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := fmt.Sprintf(tt.queryTpl, testFile)
+			q, err := Parse(query)
+			if err != nil {
+				t.Fatalf("Parse() error = %v", err)
+			}
+
+			r, err := reader.NewReader(testFile)
+			if err != nil {
+				t.Fatalf("Failed to create reader: %v", err)
+			}
+			defer r.Close()
+
+			results, err := ExecuteQuery(q, r)
+			if err != nil {
+				t.Fatalf("ExecuteQuery() error = %v", err)
+			}
+
+			if len(results) != tt.wantRows {
+				t.Errorf("Expected %d rows, got %d", tt.wantRows, len(results))
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, results)
+			}
+		})
+	}
+}

@@ -90,13 +90,13 @@ Comprehensive test coverage improvement for parcat query engine using real parqu
 
 ### Task 6: Implement edge case and schema variety tests
 
-- [ ] Add TestParquetNullValues (filtering, aggregating nulls)
-- [ ] Add TestParquetEmptyFile
-- [ ] Add TestParquetComplexSchema (nested structs, arrays, maps if supported)
-- [ ] Add TestParquetLargeDataset (1000+ rows for performance)
-- [ ] Add TestParquetMixedTypes (all supported data types in one file)
-- [ ] Write tests for this task - verify all scenarios pass
-- [ ] Run project test suite - must pass before task 7
+- [x] Add TestParquetNullValues (filtering, aggregating nulls)
+- [x] Add TestParquetEmptyFile
+- [x] Add TestParquetComplexSchema (nested structs, arrays, maps if supported)
+- [x] Add TestParquetLargeDataset (1000+ rows for performance)
+- [x] Add TestParquetMixedTypes (all supported data types in one file)
+- [x] Write tests for this task - verify all scenarios pass
+- [x] Run project test suite - must pass before task 7
 
 ## Validation
 
