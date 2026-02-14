@@ -49,12 +49,12 @@ Review and improve test coverage for parcat SQL library
 - [x] run project test suite - must pass before task 3
 
 ### Task 3: Improve executor.go coverage
-- [ ] Add tests for EvaluateSelectExpression edge cases (8.3% to 60+%)
-- [ ] Add tests for executeSelect with complex scenarios
-- [ ] Add tests for valueToNumber and valueToString helper functions
-- [ ] Write tests in query/executor_test.go
-- [ ] Run: `go test -v ./query -run TestEvaluate`
-- [ ] run project test suite - must pass before task 4
+- [x] Add tests for EvaluateSelectExpression edge cases (8.3% to 60+%)
+- [x] Add tests for executeSelect with complex scenarios
+- [x] Add tests for valueToNumber and valueToString helper functions
+- [x] Write tests in query/executor_test.go
+- [x] Run: `go test -v ./query -run TestEvaluate`
+- [x] run project test suite - must pass before task 4
 
 ### Task 4: Add window function subquery detection tests
 - [ ] Test functions: HasSubqueryInWHERE, hasSubqueryInExpression, HasSubqueryInSELECT, hasScalarSubquery
