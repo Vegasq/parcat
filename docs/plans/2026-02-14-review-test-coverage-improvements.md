@@ -77,11 +77,11 @@ Review and improve test coverage for parcat SQL library
 - [x] run project test suite - must pass before verification
 
 ### Task 7: Verify overall coverage improvement
-- [ ] Run: `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out`
-- [ ] Target: query package 67.6% to 80+%
-- [ ] Target: overall statement coverage 59.4% to 75+%
-- [ ] Generate HTML report: `go tool cover -html=coverage.out -o coverage.html`
-- [ ] run project test suite - must pass before finalization
+- [x] Run: `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out`
+- [x] Target: query package 67.6% to 80+%
+- [x] Target: overall statement coverage 59.4% to 75+%
+- [x] Generate HTML report: `go tool cover -html=coverage.out -o coverage.html`
+- [x] run project test suite - must pass before finalization
 
 ## Validation
 
