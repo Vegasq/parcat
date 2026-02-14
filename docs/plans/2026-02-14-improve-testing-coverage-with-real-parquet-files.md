@@ -69,14 +69,14 @@ Comprehensive test coverage improvement for parcat query engine using real parqu
 
 ### Task 4: Implement join tests with multiple parquet files
 
-- [ ] Add TestParquetInnerJoin
-- [ ] Add TestParquetLeftJoin
-- [ ] Add TestParquetRightJoin
-- [ ] Add TestParquetFullJoin
-- [ ] Add TestParquetCrossJoin
-- [ ] Add TestParquetMultipleJoins (3+ table joins)
-- [ ] Write tests for this task - verify all scenarios pass
-- [ ] Run project test suite - must pass before task 5
+- [x] Add TestParquetInnerJoin
+- [x] Add TestParquetLeftJoin
+- [x] Add TestParquetRightJoin
+- [x] Add TestParquetFullJoin
+- [x] Add TestParquetCrossJoin
+- [x] Add TestParquetMultipleJoins (3+ table joins)
+- [x] Write tests for this task - verify all scenarios pass
+- [x] Run project test suite - must pass before task 5
 
 ### Task 5: Implement advanced query feature tests
 
