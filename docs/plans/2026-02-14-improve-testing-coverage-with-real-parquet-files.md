@@ -59,13 +59,13 @@ Comprehensive test coverage improvement for parcat query engine using real parqu
 
 ### Task 3: Implement aggregation and grouping tests
 
-- [ ] Add TestParquetGroupBy with various grouping scenarios
-- [ ] Add TestParquetHaving for post-aggregation filtering
-- [ ] Add TestParquetAggregates (COUNT, SUM, AVG, MIN, MAX)
-- [ ] Add TestParquetGroupByMultipleColumns
-- [ ] Add TestParquetAggregateWithNulls for null handling
-- [ ] Write tests for this task - verify all scenarios pass
-- [ ] Run project test suite - must pass before task 4
+- [x] Add TestParquetGroupBy with various grouping scenarios
+- [x] Add TestParquetHaving for post-aggregation filtering
+- [x] Add TestParquetAggregates (COUNT, SUM, AVG, MIN, MAX)
+- [x] Add TestParquetGroupByMultipleColumns
+- [x] Add TestParquetAggregateWithNulls for null handling
+- [x] Write tests for this task - verify all scenarios pass
+- [x] Run project test suite - must pass before task 4
 
 ### Task 4: Implement join tests with multiple parquet files
 
