@@ -63,10 +63,10 @@ Review and improve test coverage for parcat SQL library
 - [x] run project test suite - must pass before task 5
 
 ### Task 5: Add parser window frame tests
-- [ ] Test functions: parseWindowFrame, parseFrameBound (currently 0%)
-- [ ] Write tests in query/parser_test.go
-- [ ] Run: `go test -v ./query -run TestWindow`
-- [ ] run project test suite - must pass before task 6
+- [x] Test functions: parseWindowFrame, parseFrameBound (currently 0%)
+- [x] Write tests in query/parser_test.go
+- [x] Run: `go test -v ./query -run TestWindow`
+- [x] run project test suite - must pass before task 6
 
 ### Task 6: Add CLI integration tests
 - [ ] Create cmd/parcat/integration_test.go

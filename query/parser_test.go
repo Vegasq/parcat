@@ -1,6 +1,7 @@
 package query
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -673,6 +674,355 @@ func TestParser_Distinct(t *testing.T) {
 			}
 			if !tt.wantErr && q.Distinct != tt.wantDistinct {
 				t.Errorf("Distinct = %v, want %v", q.Distinct, tt.wantDistinct)
+			}
+		})
+	}
+}
+
+func containsSubstring(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
+
+func TestWindowFrameParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		sql           string
+		wantFrameType FrameType
+		wantStartType BoundType
+		wantEndType   BoundType
+		wantStartOff  int64
+		wantEndOff    int64
+		wantErr       bool
+	}{
+		{
+			name:          "ROWS UNBOUNDED PRECEDING",
+			sql:           "SELECT ROW_NUMBER() OVER (ORDER BY id ROWS UNBOUNDED PRECEDING) FROM data.parquet",
+			wantFrameType: FrameTypeRows,
+			wantStartType: BoundUnboundedPreceding,
+			wantEndType:   BoundCurrentRow,
+			wantErr:       false,
+		},
+		{
+			name:          "ROWS CURRENT ROW",
+			sql:           "SELECT ROW_NUMBER() OVER (ORDER BY id ROWS CURRENT ROW) FROM data.parquet",
+			wantFrameType: FrameTypeRows,
+			wantStartType: BoundCurrentRow,
+			wantEndType:   BoundCurrentRow,
+			wantErr:       false,
+		},
+		{
+			name:          "ROWS 1 PRECEDING",
+			sql:           "SELECT ROW_NUMBER() OVER (ORDER BY id ROWS 1 PRECEDING) FROM data.parquet",
+			wantFrameType: FrameTypeRows,
+			wantStartType: BoundOffsetPreceding,
+			wantEndType:   BoundCurrentRow,
+			wantStartOff:  1,
+			wantErr:       false,
+		},
+		{
+			name:          "ROWS 5 FOLLOWING",
+			sql:           "SELECT ROW_NUMBER() OVER (ORDER BY id ROWS 5 FOLLOWING) FROM data.parquet",
+			wantFrameType: FrameTypeRows,
+			wantStartType: BoundOffsetFollowing,
+			wantEndType:   BoundCurrentRow,
+			wantStartOff:  5,
+			wantErr:       false,
+		},
+		{
+			name:          "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+			sql:           "SELECT RANK() OVER (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM data.parquet",
+			wantFrameType: FrameTypeRows,
+			wantStartType: BoundUnboundedPreceding,
+			wantEndType:   BoundCurrentRow,
+			wantErr:       false,
+		},
+		{
+			name:          "ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING",
+			sql:           "SELECT FIRST_VALUE(price) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM data.parquet",
+			wantFrameType: FrameTypeRows,
+			wantStartType: BoundOffsetPreceding,
+			wantEndType:   BoundOffsetFollowing,
+			wantStartOff:  1,
+			wantEndOff:    1,
+			wantErr:       false,
+		},
+		{
+			name:          "ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING",
+			sql:           "SELECT LAST_VALUE(value) OVER (ORDER BY id ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM data.parquet",
+			wantFrameType: FrameTypeRows,
+			wantStartType: BoundCurrentRow,
+			wantEndType:   BoundUnboundedFollowing,
+			wantErr:       false,
+		},
+		{
+			name:          "ROWS BETWEEN 2 PRECEDING AND 3 PRECEDING",
+			sql:           "SELECT LAG(value) OVER (ORDER BY id ROWS BETWEEN 2 PRECEDING AND 3 PRECEDING) FROM data.parquet",
+			wantFrameType: FrameTypeRows,
+			wantStartType: BoundOffsetPreceding,
+			wantEndType:   BoundOffsetPreceding,
+			wantStartOff:  2,
+			wantEndOff:    3,
+			wantErr:       false,
+		},
+		{
+			name:          "RANGE UNBOUNDED PRECEDING",
+			sql:           "SELECT DENSE_RANK() OVER (ORDER BY id RANGE UNBOUNDED PRECEDING) FROM data.parquet",
+			wantFrameType: FrameTypeRange,
+			wantStartType: BoundUnboundedPreceding,
+			wantEndType:   BoundCurrentRow,
+			wantErr:       false,
+		},
+		{
+			name:          "RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING",
+			sql:           "SELECT LEAD(value) OVER (ORDER BY id RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) FROM data.parquet",
+			wantFrameType: FrameTypeRange,
+			wantStartType: BoundCurrentRow,
+			wantEndType:   BoundUnboundedFollowing,
+			wantErr:       false,
+		},
+		{
+			name:          "RANGE BETWEEN 10 PRECEDING AND 5 FOLLOWING",
+			sql:           "SELECT NTILE(4) OVER (ORDER BY timestamp RANGE BETWEEN 10 PRECEDING AND 5 FOLLOWING) FROM data.parquet",
+			wantFrameType: FrameTypeRange,
+			wantStartType: BoundOffsetPreceding,
+			wantEndType:   BoundOffsetFollowing,
+			wantStartOff:  10,
+			wantEndOff:    5,
+			wantErr:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q, err := Parse(tt.sql)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr {
+				return
+			}
+
+			// Find the window function in the select list
+			if len(q.SelectList) == 0 {
+				t.Fatal("No select list items found")
+			}
+
+			selectItem, ok := q.SelectList[0].Expr.(*WindowExpr)
+			if !ok {
+				t.Fatalf("Expected WindowExpr, got %T", q.SelectList[0].Expr)
+			}
+
+			if selectItem.Window == nil {
+				t.Fatal("Expected window spec, got nil")
+			}
+
+			if selectItem.Window.Frame == nil {
+				t.Fatal("Expected window frame, got nil")
+			}
+
+			frame := selectItem.Window.Frame
+			if frame.Type != tt.wantFrameType {
+				t.Errorf("Frame type = %v, want %v", frame.Type, tt.wantFrameType)
+			}
+
+			if frame.Start.Type != tt.wantStartType {
+				t.Errorf("Start bound type = %v, want %v", frame.Start.Type, tt.wantStartType)
+			}
+
+			if frame.End.Type != tt.wantEndType {
+				t.Errorf("End bound type = %v, want %v", frame.End.Type, tt.wantEndType)
+			}
+
+			if tt.wantStartOff != 0 && frame.Start.Offset != tt.wantStartOff {
+				t.Errorf("Start offset = %v, want %v", frame.Start.Offset, tt.wantStartOff)
+			}
+
+			if tt.wantEndOff != 0 && frame.End.Offset != tt.wantEndOff {
+				t.Errorf("End offset = %v, want %v", frame.End.Offset, tt.wantEndOff)
+			}
+		})
+	}
+}
+
+func TestWindowFrameParsing_Errors(t *testing.T) {
+	tests := []struct {
+		name    string
+		tokens  []Token
+		wantErr string
+	}{
+		{
+			name: "missing ROWS/RANGE",
+			tokens: []Token{
+				{Type: TokenBetween, Value: "BETWEEN"},
+			},
+			wantErr: "expected ROWS or RANGE",
+		},
+		{
+			name: "UNBOUNDED without PRECEDING/FOLLOWING",
+			tokens: []Token{
+				{Type: TokenRows, Value: "ROWS"},
+				{Type: TokenIdent, Value: "UNBOUNDED"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantErr: "expected PRECEDING or FOLLOWING after UNBOUNDED",
+		},
+		{
+			name: "CURRENT without ROW",
+			tokens: []Token{
+				{Type: TokenRows, Value: "ROWS"},
+				{Type: TokenIdent, Value: "CURRENT"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantErr: "expected ROW after CURRENT",
+		},
+		{
+			name: "offset without PRECEDING/FOLLOWING",
+			tokens: []Token{
+				{Type: TokenRows, Value: "ROWS"},
+				{Type: TokenNumber, Value: "5"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantErr: "expected PRECEDING or FOLLOWING after offset",
+		},
+		{
+			name: "BETWEEN without AND",
+			tokens: []Token{
+				{Type: TokenRows, Value: "ROWS"},
+				{Type: TokenBetween, Value: "BETWEEN"},
+				{Type: TokenIdent, Value: "UNBOUNDED"},
+				{Type: TokenIdent, Value: "PRECEDING"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantErr: "expected AND in BETWEEN frame clause",
+		},
+		{
+			name: "invalid bound",
+			tokens: []Token{
+				{Type: TokenRows, Value: "ROWS"},
+				{Type: TokenIdent, Value: "INVALID"},
+			},
+			wantErr: "invalid frame bound",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewParser(tt.tokens)
+			_, err := p.parseWindowFrame()
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			// Check that error message contains the expected substring
+			if tt.wantErr != "" {
+				errStr := err.Error()
+				if !containsSubstring(errStr, tt.wantErr) {
+					t.Errorf("error = %v, want error containing %v", errStr, tt.wantErr)
+				}
+			}
+		})
+	}
+}
+
+func TestParseFrameBound_Direct(t *testing.T) {
+	tests := []struct {
+		name       string
+		tokens     []Token
+		wantType   BoundType
+		wantOffset int64
+		wantErr    bool
+	}{
+		{
+			name: "UNBOUNDED PRECEDING",
+			tokens: []Token{
+				{Type: TokenIdent, Value: "UNBOUNDED"},
+				{Type: TokenIdent, Value: "PRECEDING"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantType: BoundUnboundedPreceding,
+			wantErr:  false,
+		},
+		{
+			name: "UNBOUNDED FOLLOWING",
+			tokens: []Token{
+				{Type: TokenIdent, Value: "UNBOUNDED"},
+				{Type: TokenIdent, Value: "FOLLOWING"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantType: BoundUnboundedFollowing,
+			wantErr:  false,
+		},
+		{
+			name: "CURRENT ROW",
+			tokens: []Token{
+				{Type: TokenIdent, Value: "CURRENT"},
+				{Type: TokenIdent, Value: "ROW"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantType: BoundCurrentRow,
+			wantErr:  false,
+		},
+		{
+			name: "5 PRECEDING",
+			tokens: []Token{
+				{Type: TokenNumber, Value: "5"},
+				{Type: TokenIdent, Value: "PRECEDING"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantType:   BoundOffsetPreceding,
+			wantOffset: 5,
+			wantErr:    false,
+		},
+		{
+			name: "10 FOLLOWING",
+			tokens: []Token{
+				{Type: TokenNumber, Value: "10"},
+				{Type: TokenIdent, Value: "FOLLOWING"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantType:   BoundOffsetFollowing,
+			wantOffset: 10,
+			wantErr:    false,
+		},
+		{
+			name: "lowercase unbounded preceding",
+			tokens: []Token{
+				{Type: TokenIdent, Value: "unbounded"},
+				{Type: TokenIdent, Value: "preceding"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantType: BoundUnboundedPreceding,
+			wantErr:  false,
+		},
+		{
+			name: "mixed case CURRENT row",
+			tokens: []Token{
+				{Type: TokenIdent, Value: "CuRrEnT"},
+				{Type: TokenIdent, Value: "RoW"},
+				{Type: TokenEOF, Value: ""},
+			},
+			wantType: BoundCurrentRow,
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewParser(tt.tokens)
+			bound, err := p.parseFrameBound()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseFrameBound() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if bound.Type != tt.wantType {
+					t.Errorf("bound type = %v, want %v", bound.Type, tt.wantType)
+				}
+				if tt.wantOffset != 0 && bound.Offset != tt.wantOffset {
+					t.Errorf("bound offset = %v, want %v", bound.Offset, tt.wantOffset)
+				}
 			}
 		})
 	}
