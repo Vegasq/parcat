@@ -1,5 +1,5 @@
 # Binaries
-parcat
+/parcat
 *.exe
 *.exe~
 *.dll
@@ -24,3 +24,6 @@ go.work
 
 # OS
 .DS_Store
+
+# ralphex progress logs
+progress*.txt

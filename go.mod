@@ -1,6 +1,8 @@
 module github.com/vegasq/parcat
 
-go 1.24.3
+go 1.23
+
+require github.com/segmentio/parquet-go v0.0.0-20230712180008-5d42db8f0d47
 
 require (
 	github.com/andybalholm/brotli v1.0.3 // indirect
@@ -10,6 +12,5 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pierrec/lz4/v4 v4.1.9 // indirect
 	github.com/segmentio/encoding v0.3.5 // indirect
-	github.com/segmentio/parquet-go v0.0.0-20230712180008-5d42db8f0d47 // indirect
 	golang.org/x/sys v0.0.0-20211110154304-99a53858aa08 // indirect
 )
