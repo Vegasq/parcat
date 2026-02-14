@@ -133,7 +133,9 @@ func TestMain_SchemaMode(t *testing.T) {
 		os.Stdout = oldStdout
 
 		var buf bytes.Buffer
-		buf.ReadFrom(r)
+		if _, err := buf.ReadFrom(r); err != nil {
+			t.Fatalf("failed to read from pipe: %v", err)
+		}
 		output := buf.String()
 
 		// Verify schema output contains expected fields
@@ -157,7 +159,9 @@ func TestMain_SchemaMode(t *testing.T) {
 		os.Stdout = oldStdout
 
 		var buf bytes.Buffer
-		buf.ReadFrom(r)
+		if _, err := buf.ReadFrom(r); err != nil {
+			t.Fatalf("failed to read from pipe: %v", err)
+		}
 		output := buf.String()
 
 		// Verify CSV header
@@ -188,6 +192,7 @@ func TestMain_JoinOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create dept file: %v", err)
 	}
+	defer f.Close()
 
 	deptRows := []DeptRow{
 		{UserID: 1, Dept: "Engineering"},
@@ -199,7 +204,6 @@ func TestMain_JoinOperations(t *testing.T) {
 		t.Fatalf("failed to write dept data: %v", err)
 	}
 	writer.Close()
-	f.Close()
 
 	// Verify files exist
 	if _, err := os.Stat(file1); err != nil {
