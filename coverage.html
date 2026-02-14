@@ -3,7 +3,7 @@
 <html>
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-		<title>parcat: Go Coverage Report</title>
+		<title>query: Go Coverage Report</title>
 		<style>
 			body {
 				background: black;
@@ -55,33 +55,25 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/vegasq/parcat/cmd/parcat/main.go (13.6%)</option>
+				<option value="file0">github.com/vegasq/parcat/query/aggregate.go (82.0%)</option>
 				
-				<option value="file1">github.com/vegasq/parcat/output/csv.go (82.9%)</option>
+				<option value="file1">github.com/vegasq/parcat/query/executor.go (85.6%)</option>
 				
-				<option value="file2">github.com/vegasq/parcat/output/json.go (85.7%)</option>
+				<option value="file2">github.com/vegasq/parcat/query/filter.go (78.2%)</option>
 				
-				<option value="file3">github.com/vegasq/parcat/query/aggregate.go (79.3%)</option>
+				<option value="file3">github.com/vegasq/parcat/query/function.go (71.9%)</option>
 				
-				<option value="file4">github.com/vegasq/parcat/query/executor.go (83.5%)</option>
+				<option value="file4">github.com/vegasq/parcat/query/lexer.go (92.9%)</option>
 				
-				<option value="file5">github.com/vegasq/parcat/query/filter.go (75.4%)</option>
+				<option value="file5">github.com/vegasq/parcat/query/parser.go (79.5%)</option>
 				
-				<option value="file6">github.com/vegasq/parcat/query/function.go (71.9%)</option>
+				<option value="file6">github.com/vegasq/parcat/query/testdata_helpers.go (77.3%)</option>
 				
-				<option value="file7">github.com/vegasq/parcat/query/lexer.go (92.9%)</option>
+				<option value="file7">github.com/vegasq/parcat/query/types.go (80.6%)</option>
 				
-				<option value="file8">github.com/vegasq/parcat/query/parser.go (79.5%)</option>
+				<option value="file8">github.com/vegasq/parcat/query/validation.go (70.0%)</option>
 				
-				<option value="file9">github.com/vegasq/parcat/query/types.go (80.6%)</option>
-				
-				<option value="file10">github.com/vegasq/parcat/query/validation.go (70.0%)</option>
-				
-				<option value="file11">github.com/vegasq/parcat/query/window.go (79.3%)</option>
-				
-				<option value="file12">github.com/vegasq/parcat/reader/parquet.go (82.3%)</option>
-				
-				<option value="file13">github.com/vegasq/parcat/reader/schema.go (72.2%)</option>
+				<option value="file9">github.com/vegasq/parcat/query/window.go (79.3%)</option>
 				
 				</select>
 			</div>
@@ -95,1008 +87,10 @@
 		</div>
 		<div id="content">
 		
-		<pre class="file" id="file0" style="display: none">package main
-
-import (
-        "flag"
-        "fmt"
-        "os"
-        "path/filepath"
-        "strings"
-
-        "github.com/vegasq/parcat/output"
-        "github.com/vegasq/parcat/query"
-        "github.com/vegasq/parcat/reader"
-)
-
-var (
-        queryFlag  = flag.String("q", "", "SQL query (e.g., \"select * from file.parquet where age &gt; 30\")")
-        formatFlag = flag.String("f", "jsonl", "Output format: json, jsonl, csv")
-        limitFlag  = flag.Int("limit", 0, "Limit number of rows (0 = unlimited)")
-        schemaFlag = flag.Bool("schema", false, "Show schema information instead of data")
-)
-
-func main() <span class="cov0" title="0">{
-        flag.Usage = func() </span><span class="cov0" title="0">{
-                fmt.Fprintf(os.Stderr, "Usage: %s [options] &lt;file.parquet&gt;\n\n", os.Args[0])
-                fmt.Fprintf(os.Stderr, "A tool to read and query Parquet files.\n\n")
-                fmt.Fprintf(os.Stderr, "IMPORTANT: All flags must come BEFORE file arguments.\n\n")
-                fmt.Fprintf(os.Stderr, "Options:\n")
-                flag.PrintDefaults()
-                fmt.Fprintf(os.Stderr, "\nExamples:\n")
-                fmt.Fprintf(os.Stderr, "  %s data.parquet\n", os.Args[0])
-                fmt.Fprintf(os.Stderr, "  %s -f csv data.parquet\n", os.Args[0])
-                fmt.Fprintf(os.Stderr, "  %s -q \"select * from data.parquet where age &gt; 30\" data.parquet\n", os.Args[0])
-                fmt.Fprintf(os.Stderr, "  %s --schema data.parquet\n", os.Args[0])
-                fmt.Fprintf(os.Stderr, "  %s -f csv --schema data.parquet\n", os.Args[0])
-        }</span>
-
-        <span class="cov0" title="0">flag.Parse()
-
-        // Validate flag values
-        if *limitFlag &lt; 0 </span><span class="cov0" title="0">{
-                fmt.Fprintf(os.Stderr, "Error: -limit must be non-negative, got %d\n", *limitFlag)
-                os.Exit(1)
-        }</span>
-
-        // Validate flag combinations
-        <span class="cov0" title="0">if *schemaFlag &amp;&amp; *queryFlag != "" </span><span class="cov0" title="0">{
-                fmt.Fprintf(os.Stderr, "Error: --schema and -q cannot be used together\n")
-                os.Exit(1)
-        }</span>
-
-        // Get filename from positional args (optional if query has FROM clause)
-        <span class="cov0" title="0">var filename string
-        if flag.NArg() &gt;= 1 </span><span class="cov0" title="0">{
-                filename = flag.Arg(0)
-        }</span>
-
-        // Handle schema mode
-        <span class="cov0" title="0">if *schemaFlag </span><span class="cov0" title="0">{
-                if filename == "" </span><span class="cov0" title="0">{
-                        fmt.Fprintf(os.Stderr, "Error: missing parquet file argument\n\n")
-                        flag.Usage()
-                        os.Exit(1)
-                }</span>
-                <span class="cov0" title="0">handleSchemaMode(filename, *formatFlag)
-                os.Exit(0)</span>
-        }
-
-        // Parse query if specified to determine if we need a filename
-        <span class="cov0" title="0">var q *query.Query
-        if *queryFlag != "" </span><span class="cov0" title="0">{
-                var err error
-                q, err = query.Parse(*queryFlag)
-                if err != nil </span><span class="cov0" title="0">{
-                        fmt.Fprintf(os.Stderr, "Error parsing query: %v\n\n", err)
-                        fmt.Fprintf(os.Stderr, "Query format: select * from file.parquet where &lt;condition&gt;\n")
-                        fmt.Fprintf(os.Stderr, "Example: select * from data.parquet where age &gt; 30\n")
-                        os.Exit(1)
-                }</span>
-
-                // If query specifies table name, use it instead of positional arg
-                <span class="cov0" title="0">if q.TableName != "" &amp;&amp; filename == "" </span><span class="cov0" title="0">{
-                        filename = q.TableName
-                }</span>
-        }
-
-        // Declare rows variable before conditional logic
-        <span class="cov0" title="0">var rows []map[string]interface{}
-        var err error
-
-        // Materialize CTEs FIRST (before loading main table) as they may be referenced in FROM
-        ctx := query.NewExecutionContext(nil)
-        if q != nil &amp;&amp; len(q.CTEs) &gt; 0 </span><span class="cov0" title="0">{
-                // Use the executor's CTE materialization logic which includes circular dependency detection
-                if err := ctx.MaterializeCTEs(q.CTEs, executeCTEQuery); err != nil </span><span class="cov0" title="0">{
-                        fmt.Fprintf(os.Stderr, "Error materializing CTEs: %v\n", err)
-                        os.Exit(1)
-                }</span>
-        }
-
-        // Handle FROM subquery case
-        <span class="cov0" title="0">if q != nil &amp;&amp; q.Subquery != nil </span><span class="cov0" title="0">{
-                // Execute the subquery to get initial rows
-                rows, err = executeCTEQuery(q.Subquery, ctx)
-                if err != nil </span><span class="cov0" title="0">{
-                        fmt.Fprintf(os.Stderr, "Error executing FROM subquery: %v\n", err)
-                        os.Exit(1)
-                }</span>
-
-                // Apply table alias if specified
-                <span class="cov0" title="0">if q.TableAlias != "" </span><span class="cov0" title="0">{
-                        rows = applyTableAliasHelper(rows, q.TableAlias)
-                }</span>
-        } else<span class="cov0" title="0"> if q != nil &amp;&amp; filename != "" &amp;&amp; len(ctx.CTEs) &gt; 0 </span><span class="cov0" title="0">{
-                // Check if main table is a CTE reference
-                if cteRows, exists := ctx.CTEs[q.TableName]; exists </span><span class="cov0" title="0">{
-                        rows = cteRows
-                        // Apply table alias if specified
-                        if q.TableAlias != "" </span><span class="cov0" title="0">{
-                                rows = applyTableAliasHelper(rows, q.TableAlias)
-                        }</span>
-                } else<span class="cov0" title="0"> {
-                        // Not a CTE, read from file
-                        rows, err = reader.ReadMultipleFiles(filename)
-                        if err != nil </span><span class="cov0" title="0">{
-                                if os.IsNotExist(err) </span><span class="cov0" title="0">{
-                                        fmt.Fprintf(os.Stderr, "Error: file '%s' not found\n", filename)
-                                        fmt.Fprintf(os.Stderr, "Please check the file path and try again.\n")
-                                }</span> else<span class="cov0" title="0"> {
-                                        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-                                }</span>
-                                <span class="cov0" title="0">os.Exit(1)</span>
-                        }
-                        // Apply table alias if specified
-                        <span class="cov0" title="0">if q.TableAlias != "" </span><span class="cov0" title="0">{
-                                rows = applyTableAliasHelper(rows, q.TableAlias)
-                        }</span>
-                }
-        } else<span class="cov0" title="0"> {
-                // Ensure we have a filename
-                if filename == "" </span><span class="cov0" title="0">{
-                        fmt.Fprintf(os.Stderr, "Error: missing parquet file argument\n\n")
-                        flag.Usage()
-                        os.Exit(1)
-                }</span>
-
-                // Read all rows (supports glob patterns)
-                <span class="cov0" title="0">rows, err = reader.ReadMultipleFiles(filename)
-                if err != nil </span><span class="cov0" title="0">{
-                        if os.IsNotExist(err) </span><span class="cov0" title="0">{
-                                fmt.Fprintf(os.Stderr, "Error: file '%s' not found\n", filename)
-                                fmt.Fprintf(os.Stderr, "Please check the file path and try again.\n")
-                        }</span> else<span class="cov0" title="0"> {
-                                fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-                        }</span>
-                        <span class="cov0" title="0">os.Exit(1)</span>
-                }
-                // Apply table alias if specified
-                <span class="cov0" title="0">if q != nil &amp;&amp; q.TableAlias != "" </span><span class="cov0" title="0">{
-                        rows = applyTableAliasHelper(rows, q.TableAlias)
-                }</span>
-        }
-
-        // Apply query if specified
-        <span class="cov0" title="0">if q != nil </span><span class="cov0" title="0">{
-                // CTEs already materialized above in ctx
-                // Table alias already applied in the paths above
-
-                // Handle JOINs - need to read additional files
-                if len(q.Joins) &gt; 0 </span><span class="cov0" title="0">{
-
-                        // Execute JOINs
-                        for _, join := range q.Joins </span><span class="cov0" title="0">{
-                                var joinRows []map[string]interface{}
-
-                                if join.Subquery != nil </span><span class="cov0" title="0">{
-                                        // JOIN with subquery
-                                        joinRows, err = executeCTEQuery(join.Subquery, ctx)
-                                        if err != nil </span><span class="cov0" title="0">{
-                                                fmt.Fprintf(os.Stderr, "Error executing JOIN subquery: %v\n", err)
-                                                os.Exit(1)
-                                        }</span>
-                                } else<span class="cov0" title="0"> if join.TableName != "" </span><span class="cov0" title="0">{
-                                        // Check if it's a CTE reference
-                                        if cteRows, exists := ctx.CTEs[join.TableName]; exists </span><span class="cov0" title="0">{
-                                                joinRows = cteRows
-                                        }</span> else<span class="cov0" title="0"> if ctx.AllCTENames[join.TableName] </span><span class="cov0" title="0">{
-                                                // This is a forward CTE reference (CTE defined but not yet materialized)
-                                                fmt.Fprintf(os.Stderr, "Error: forward CTE reference in JOIN: %s is defined but not yet materialized (CTEs must be referenced in order)\n", join.TableName)
-                                                os.Exit(1)
-                                        }</span> else<span class="cov0" title="0"> {
-                                                // Read from parquet file (supports glob)
-                                                joinRows, err = reader.ReadMultipleFiles(join.TableName)
-                                                if err != nil </span><span class="cov0" title="0">{
-                                                        fmt.Fprintf(os.Stderr, "Error reading JOIN table %s: %v\n", join.TableName, err)
-                                                        os.Exit(1)
-                                                }</span>
-                                        }
-                                }
-
-                                // Apply alias to joined table if specified
-                                <span class="cov0" title="0">if join.Alias != "" </span><span class="cov0" title="0">{
-                                        joinRows = applyTableAliasHelper(joinRows, join.Alias)
-                                }</span>
-
-                                // Execute the join
-                                <span class="cov0" title="0">rows, err = executeJoinHelper(rows, joinRows, join)
-                                if err != nil </span><span class="cov0" title="0">{
-                                        fmt.Fprintf(os.Stderr, "Error executing JOIN: %v\n", err)
-                                        os.Exit(1)
-                                }</span>
-                        }
-                }
-
-                // Apply WHERE filter first (with context for subquery support)
-                <span class="cov0" title="0">if q.Filter != nil </span><span class="cov0" title="0">{
-                        rows, err = query.ApplyFilterWithContext(rows, q.Filter, ctx)
-                        if err != nil </span><span class="cov0" title="0">{
-                                fmt.Fprintf(os.Stderr, "Error applying filter: %v\n", err)
-                                // List available columns to help user
-                                if len(rows) &gt; 0 </span><span class="cov0" title="0">{
-                                        columns := query.GetColumnNames(rows)
-                                        fmt.Fprintf(os.Stderr, "\nAvailable columns: ")
-                                        for i, col := range columns </span><span class="cov0" title="0">{
-                                                if i &gt; 0 </span><span class="cov0" title="0">{
-                                                        fmt.Fprintf(os.Stderr, ", ")
-                                                }</span>
-                                                <span class="cov0" title="0">fmt.Fprintf(os.Stderr, "%s", col)</span>
-                                        }
-                                        <span class="cov0" title="0">fmt.Fprintf(os.Stderr, "\n")</span>
-                                }
-                                <span class="cov0" title="0">os.Exit(1)</span>
-                        }
-                }
-
-                // Apply window functions if present (before aggregation and projection)
-                <span class="cov0" title="0">hasWindowFunc := query.HasWindowFunction(q.SelectList)
-                if hasWindowFunc </span><span class="cov0" title="0">{
-                        rows, err = query.ApplyWindowFunctions(rows, q.SelectList)
-                        if err != nil </span><span class="cov0" title="0">{
-                                fmt.Fprintf(os.Stderr, "Error applying window functions: %v\n", err)
-                                os.Exit(1)
-                        }</span>
-                        // After window functions, we need final projection but must not re-evaluate window exprs
-                        // ApplyWindowFunctions already added window results as columns
-                        // Now project to final SELECT list, treating window exprs as column references
-                        <span class="cov0" title="0">rows, err = query.ApplySelectListAfterWindows(rows, q.SelectList)
-                        if err != nil </span><span class="cov0" title="0">{
-                                fmt.Fprintf(os.Stderr, "Error applying select list after windows: %v\n", err)
-                                os.Exit(1)
-                        }</span>
-                } else<span class="cov0" title="0"> if len(q.GroupBy) &gt; 0 || query.HasAggregateFunction(q.SelectList) </span><span class="cov0" title="0">{
-                        // Apply GROUP BY and aggregation if present
-                        rows, err = query.ApplyGroupByAndAggregate(rows, q.GroupBy, q.SelectList)
-                        if err != nil </span><span class="cov0" title="0">{
-                                fmt.Fprintf(os.Stderr, "Error applying aggregation: %v\n", err)
-                                os.Exit(1)
-                        }</span>
-
-                        // Apply HAVING filter if present
-                        <span class="cov0" title="0">if q.Having != nil </span><span class="cov0" title="0">{
-                                rows, err = query.EvaluateHaving(rows, q.Having)
-                                if err != nil </span><span class="cov0" title="0">{
-                                        fmt.Fprintf(os.Stderr, "Error applying HAVING clause: %v\n", err)
-                                        os.Exit(1)
-                                }</span>
-                        }
-                } else<span class="cov0" title="0"> {
-                        // Apply SELECT list projection (only if no aggregation or windows) with context for scalar subquery support
-                        if len(q.SelectList) &gt; 0 </span><span class="cov0" title="0">{
-                                rows, err = query.ApplySelectListWithContext(rows, q.SelectList, ctx)
-                                if err != nil </span><span class="cov0" title="0">{
-                                        fmt.Fprintf(os.Stderr, "Error applying select list: %v\n", err)
-                                        os.Exit(1)
-                                }</span>
-                        }
-                }
-
-                // Apply DISTINCT if present
-                <span class="cov0" title="0">if q.Distinct </span><span class="cov0" title="0">{
-                        rows, err = query.ApplyDistinct(rows)
-                        if err != nil </span><span class="cov0" title="0">{
-                                fmt.Fprintf(os.Stderr, "Error applying DISTINCT: %v\n", err)
-                                os.Exit(1)
-                        }</span>
-                }
-
-                // Apply ORDER BY if present
-                <span class="cov0" title="0">if len(q.OrderBy) &gt; 0 </span><span class="cov0" title="0">{
-                        rows, err = query.ApplyOrderBy(rows, q.OrderBy)
-                        if err != nil </span><span class="cov0" title="0">{
-                                fmt.Fprintf(os.Stderr, "Error applying ORDER BY: %v\n", err)
-                                os.Exit(1)
-                        }</span>
-                }
-
-                // Apply SQL LIMIT and OFFSET if present
-                <span class="cov0" title="0">if q.Limit != nil || q.Offset != nil </span><span class="cov0" title="0">{
-                        rows, err = query.ApplyLimitOffset(rows, q.Limit, q.Offset)
-                        if err != nil </span><span class="cov0" title="0">{
-                                fmt.Fprintf(os.Stderr, "Error applying LIMIT/OFFSET: %v\n", err)
-                                os.Exit(1)
-                        }</span>
-                }
-        }
-
-        // Apply flag-based limit only if SQL LIMIT was not specified
-        <span class="cov0" title="0">if *limitFlag &gt; 0 &amp;&amp; (q == nil || q.Limit == nil) &amp;&amp; len(rows) &gt; *limitFlag </span><span class="cov0" title="0">{
-                rows = rows[:*limitFlag]
-        }</span>
-
-        // Format and output
-        <span class="cov0" title="0">var formatter output.Formatter
-        switch *formatFlag </span>{
-        case "json", "jsonl":<span class="cov0" title="0">
-                formatter = output.NewJSONFormatter(os.Stdout)</span>
-        case "csv":<span class="cov0" title="0">
-                formatter = output.NewCSVFormatter(os.Stdout)</span>
-        default:<span class="cov0" title="0">
-                fmt.Fprintf(os.Stderr, "Error: unsupported format '%s'\n", *formatFlag)
-                fmt.Fprintf(os.Stderr, "Supported formats: json, jsonl, csv\n")
-                os.Exit(1)</span>
-        }
-
-        <span class="cov0" title="0">if err := formatter.Format(rows); err != nil </span><span class="cov0" title="0">{
-                fmt.Fprintf(os.Stderr, "Error formatting output: %v\n", err)
-                os.Exit(1)
-        }</span>
-}
-
-// executeCTEQuery executes a CTE or subquery
-func executeCTEQuery(q *query.Query, ctx *query.ExecutionContext) ([]map[string]interface{}, error) <span class="cov0" title="0">{
-        var rows []map[string]interface{}
-        var err error
-
-        // Materialize any CTEs defined in this subquery FIRST
-        // Use a child context to prevent CTE scope leaking to parent
-        if len(q.CTEs) &gt; 0 </span><span class="cov0" title="0">{
-                childCtx := ctx.NewChildContext()
-                if err := childCtx.MaterializeCTEs(q.CTEs, executeCTEQuery); err != nil </span><span class="cov0" title="0">{
-                        return nil, fmt.Errorf("failed to materialize CTEs in subquery: %w", err)
-                }</span>
-                // Use child context for the rest of this subquery
-                <span class="cov0" title="0">ctx = childCtx</span>
-        }
-
-        // Handle subqueries in FROM clause
-        <span class="cov0" title="0">if q.Subquery != nil </span><span class="cov0" title="0">{
-                rows, err = executeCTEQuery(q.Subquery, ctx)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-        } else<span class="cov0" title="0"> if q.TableName != "" </span><span class="cov0" title="0">{
-                // Check if this table is currently being materialized (circular dependency)
-                if ctx.InProgress[q.TableName] </span><span class="cov0" title="0">{
-                        return nil, fmt.Errorf("circular CTE dependency detected: %s references itself", q.TableName)
-                }</span>
-
-                // Check if it's a CTE reference
-                <span class="cov0" title="0">if cteRows, exists := ctx.CTEs[q.TableName]; exists </span><span class="cov0" title="0">{
-                        rows = cteRows
-                }</span> else<span class="cov0" title="0"> if ctx.AllCTENames[q.TableName] </span><span class="cov0" title="0">{
-                        // This is a forward CTE reference (CTE defined but not yet materialized)
-                        return nil, fmt.Errorf("forward CTE reference: %s is defined but not yet materialized (CTEs must be referenced in order)", q.TableName)
-                }</span> else<span class="cov0" title="0"> {
-                        // Read from parquet file
-                        rows, err = reader.ReadMultipleFiles(q.TableName)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-                }
-        } else<span class="cov0" title="0"> {
-                return nil, fmt.Errorf("no data source specified (table, CTE, or subquery)")
-        }</span>
-
-        // Apply table alias to main table rows if specified (BEFORE filtering/joins)
-        <span class="cov0" title="0">if q.TableAlias != "" </span><span class="cov0" title="0">{
-                rows = applyTableAliasHelper(rows, q.TableAlias)
-        }</span>
-
-        // Handle JOINs if present
-        <span class="cov0" title="0">if len(q.Joins) &gt; 0 </span><span class="cov0" title="0">{
-                for _, join := range q.Joins </span><span class="cov0" title="0">{
-                        var joinRows []map[string]interface{}
-                        if join.Subquery != nil </span><span class="cov0" title="0">{
-                                joinRows, err = executeCTEQuery(join.Subquery, ctx)
-                                if err != nil </span><span class="cov0" title="0">{
-                                        return nil, err
-                                }</span>
-                        } else<span class="cov0" title="0"> if join.TableName != "" </span><span class="cov0" title="0">{
-                                // Check for circular dependency
-                                if ctx.InProgress[join.TableName] </span><span class="cov0" title="0">{
-                                        return nil, fmt.Errorf("circular CTE dependency detected: JOIN references %s which is currently being materialized", join.TableName)
-                                }</span>
-
-                                <span class="cov0" title="0">if cteRows, exists := ctx.CTEs[join.TableName]; exists </span><span class="cov0" title="0">{
-                                        joinRows = cteRows
-                                }</span> else<span class="cov0" title="0"> if ctx.AllCTENames[join.TableName] </span><span class="cov0" title="0">{
-                                        // This is a forward CTE reference (CTE defined but not yet materialized)
-                                        return nil, fmt.Errorf("forward CTE reference in JOIN: %s is defined but not yet materialized (CTEs must be referenced in order)", join.TableName)
-                                }</span> else<span class="cov0" title="0"> {
-                                        joinRows, err = reader.ReadMultipleFiles(join.TableName)
-                                        if err != nil </span><span class="cov0" title="0">{
-                                                return nil, err
-                                        }</span>
-                                }
-                        }
-
-                        <span class="cov0" title="0">if join.Alias != "" </span><span class="cov0" title="0">{
-                                joinRows = applyTableAliasHelper(joinRows, join.Alias)
-                        }</span>
-
-                        <span class="cov0" title="0">rows, err = executeJoinHelper(rows, joinRows, join)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-                }
-        }
-
-        // Apply WHERE filter if present (with context for subquery support)
-        <span class="cov0" title="0">if q.Filter != nil </span><span class="cov0" title="0">{
-                rows, err = query.ApplyFilterWithContext(rows, q.Filter, ctx)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-        }
-
-        // Apply window functions if present (before aggregation and projection)
-        <span class="cov0" title="0">hasWindowFunc := query.HasWindowFunction(q.SelectList)
-        if hasWindowFunc </span><span class="cov0" title="0">{
-                rows, err = query.ApplyWindowFunctions(rows, q.SelectList)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-                // After window functions, we need final projection but must not re-evaluate window exprs
-                // ApplyWindowFunctions already added window results as columns
-                // Now project to final SELECT list, treating window exprs as column references
-                <span class="cov0" title="0">rows, err = query.ApplySelectListAfterWindows(rows, q.SelectList)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-        } else<span class="cov0" title="0"> if len(q.GroupBy) &gt; 0 || query.HasAggregateFunction(q.SelectList) </span><span class="cov0" title="0">{
-                // Apply GROUP BY and aggregation if present (BEFORE projection)
-                rows, err = query.ApplyGroupByAndAggregate(rows, q.GroupBy, q.SelectList)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-
-                // Apply HAVING filter if present
-                <span class="cov0" title="0">if q.Having != nil </span><span class="cov0" title="0">{
-                        rows, err = query.EvaluateHaving(rows, q.Having)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-                }
-        } else<span class="cov0" title="0"> {
-                // Apply SELECT list projection (only if no aggregation or windows) with context for scalar subquery support
-                if len(q.SelectList) &gt; 0 </span><span class="cov0" title="0">{
-                        rows, err = query.ApplySelectListWithContext(rows, q.SelectList, ctx)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-                }
-        }
-
-        // Apply DISTINCT if present
-        <span class="cov0" title="0">if q.Distinct </span><span class="cov0" title="0">{
-                rows, err = query.ApplyDistinct(rows)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-        }
-
-        // Apply ORDER BY if present
-        <span class="cov0" title="0">if len(q.OrderBy) &gt; 0 </span><span class="cov0" title="0">{
-                rows, err = query.ApplyOrderBy(rows, q.OrderBy)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-        }
-
-        // Apply LIMIT/OFFSET if present
-        <span class="cov0" title="0">if q.Limit != nil || q.Offset != nil </span><span class="cov0" title="0">{
-                rows, err = query.ApplyLimitOffset(rows, q.Limit, q.Offset)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-        }
-
-        <span class="cov0" title="0">return rows, nil</span>
-}
-
-// applyTableAliasHelper prefixes all column names with table alias
-func applyTableAliasHelper(rows []map[string]interface{}, alias string) []map[string]interface{} <span class="cov8" title="1">{
-        if alias == "" </span><span class="cov8" title="1">{
-                return rows
-        }</span>
-
-        <span class="cov8" title="1">aliasedRows := make([]map[string]interface{}, len(rows))
-        for i, row := range rows </span><span class="cov8" title="1">{
-                aliasedRow := make(map[string]interface{})
-                for col, val := range row </span><span class="cov8" title="1">{
-                        // Don't alias the special _file column
-                        if col == "_file" </span><span class="cov8" title="1">{
-                                aliasedRow[col] = val
-                        }</span> else<span class="cov8" title="1"> {
-                                aliasedRow[alias+"."+col] = val
-                        }</span>
-                }
-                <span class="cov8" title="1">aliasedRows[i] = aliasedRow</span>
-        }
-        <span class="cov8" title="1">return aliasedRows</span>
-}
-
-// executeJoinHelper executes a JOIN operation
-func executeJoinHelper(leftRows, rightRows []map[string]interface{}, join query.Join) ([]map[string]interface{}, error) <span class="cov0" title="0">{
-        switch join.Type </span>{
-        case query.JoinInner:<span class="cov0" title="0">
-                return executeInnerJoinHelper(leftRows, rightRows, join.Condition)</span>
-        case query.JoinLeft:<span class="cov0" title="0">
-                return executeLeftJoinHelper(leftRows, rightRows, join.Condition)</span>
-        case query.JoinRight:<span class="cov0" title="0">
-                return executeRightJoinHelper(leftRows, rightRows, join.Condition)</span>
-        case query.JoinFull:<span class="cov0" title="0">
-                return executeFullJoinHelper(leftRows, rightRows, join.Condition)</span>
-        case query.JoinCross:<span class="cov0" title="0">
-                return executeCrossJoinHelper(leftRows, rightRows)</span>
-        default:<span class="cov0" title="0">
-                return nil, fmt.Errorf("unsupported join type: %v", join.Type)</span>
-        }
-}
-
-// executeInnerJoinHelper performs an INNER JOIN
-func executeInnerJoinHelper(leftRows, rightRows []map[string]interface{}, condition query.Expression) ([]map[string]interface{}, error) <span class="cov0" title="0">{
-        var result []map[string]interface{}
-
-        for _, leftRow := range leftRows </span><span class="cov0" title="0">{
-                for _, rightRow := range rightRows </span><span class="cov0" title="0">{
-                        // Merge rows
-                        merged, err := mergeRowsHelper(leftRow, rightRow)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-
-                        // Evaluate join condition
-                        <span class="cov0" title="0">match, err := condition.Evaluate(merged)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, fmt.Errorf("failed to evaluate JOIN condition: %w", err)
-                        }</span>
-
-                        <span class="cov0" title="0">if match </span><span class="cov0" title="0">{
-                                result = append(result, merged)
-                        }</span>
-                }
-        }
-
-        <span class="cov0" title="0">return result, nil</span>
-}
-
-// executeLeftJoinHelper performs a LEFT OUTER JOIN
-func executeLeftJoinHelper(leftRows, rightRows []map[string]interface{}, condition query.Expression) ([]map[string]interface{}, error) <span class="cov0" title="0">{
-        var result []map[string]interface{}
-
-        // Special case: if right side is empty, return all left rows unchanged
-        // (we can't add NULL columns without knowing the right side schema)
-        if len(rightRows) == 0 </span><span class="cov0" title="0">{
-                return append([]map[string]interface{}{}, leftRows...), nil
-        }</span>
-
-        <span class="cov0" title="0">for _, leftRow := range leftRows </span><span class="cov0" title="0">{
-                matched := false
-
-                for _, rightRow := range rightRows </span><span class="cov0" title="0">{
-                        // Merge rows
-                        merged, err := mergeRowsHelper(leftRow, rightRow)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-
-                        // Evaluate join condition
-                        <span class="cov0" title="0">match, err := condition.Evaluate(merged)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, fmt.Errorf("failed to evaluate JOIN condition: %w", err)
-                        }</span>
-
-                        <span class="cov0" title="0">if match </span><span class="cov0" title="0">{
-                                result = append(result, merged)
-                                matched = true
-                        }</span>
-                }
-
-                // If no match, include left row with NULL values for right columns
-                <span class="cov0" title="0">if !matched </span><span class="cov0" title="0">{
-                        merged, err := mergeRowsHelper(leftRow, createNullRowHelper(rightRows))
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-                        <span class="cov0" title="0">result = append(result, merged)</span>
-                }
-        }
-
-        <span class="cov0" title="0">return result, nil</span>
-}
-
-// executeRightJoinHelper performs a RIGHT OUTER JOIN
-func executeRightJoinHelper(leftRows, rightRows []map[string]interface{}, condition query.Expression) ([]map[string]interface{}, error) <span class="cov0" title="0">{
-        var result []map[string]interface{}
-
-        // Special case: if left side is empty, return all right rows unchanged
-        // (we can't add NULL columns without knowing the left side schema)
-        if len(leftRows) == 0 </span><span class="cov0" title="0">{
-                return append([]map[string]interface{}{}, rightRows...), nil
-        }</span>
-
-        <span class="cov0" title="0">for _, rightRow := range rightRows </span><span class="cov0" title="0">{
-                matched := false
-
-                for _, leftRow := range leftRows </span><span class="cov0" title="0">{
-                        // Merge rows
-                        merged, err := mergeRowsHelper(leftRow, rightRow)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-
-                        // Evaluate join condition
-                        <span class="cov0" title="0">match, err := condition.Evaluate(merged)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, fmt.Errorf("failed to evaluate JOIN condition: %w", err)
-                        }</span>
-
-                        <span class="cov0" title="0">if match </span><span class="cov0" title="0">{
-                                result = append(result, merged)
-                                matched = true
-                        }</span>
-                }
-
-                // If no match, include right row with NULL values for left columns
-                <span class="cov0" title="0">if !matched </span><span class="cov0" title="0">{
-                        merged, err := mergeRowsHelper(createNullRowHelper(leftRows), rightRow)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-                        <span class="cov0" title="0">result = append(result, merged)</span>
-                }
-        }
-
-        <span class="cov0" title="0">return result, nil</span>
-}
-
-// executeFullJoinHelper performs a FULL OUTER JOIN
-func executeFullJoinHelper(leftRows, rightRows []map[string]interface{}, condition query.Expression) ([]map[string]interface{}, error) <span class="cov0" title="0">{
-        var result []map[string]interface{}
-
-        // Special cases: if one side is empty, return the other side unchanged
-        if len(leftRows) == 0 </span><span class="cov0" title="0">{
-                return append([]map[string]interface{}{}, rightRows...), nil
-        }</span>
-        <span class="cov0" title="0">if len(rightRows) == 0 </span><span class="cov0" title="0">{
-                return append([]map[string]interface{}{}, leftRows...), nil
-        }</span>
-
-        // Track which right rows have been matched
-        <span class="cov0" title="0">rightMatched := make([]bool, len(rightRows))
-
-        // Process left rows
-        for _, leftRow := range leftRows </span><span class="cov0" title="0">{
-                matched := false
-
-                for i, rightRow := range rightRows </span><span class="cov0" title="0">{
-                        // Merge rows
-                        merged, err := mergeRowsHelper(leftRow, rightRow)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-
-                        // Evaluate join condition
-                        <span class="cov0" title="0">match, err := condition.Evaluate(merged)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, fmt.Errorf("failed to evaluate JOIN condition: %w", err)
-                        }</span>
-
-                        <span class="cov0" title="0">if match </span><span class="cov0" title="0">{
-                                result = append(result, merged)
-                                matched = true
-                                rightMatched[i] = true
-                        }</span>
-                }
-
-                // If no match, include left row with NULL values for right columns
-                <span class="cov0" title="0">if !matched </span><span class="cov0" title="0">{
-                        merged, err := mergeRowsHelper(leftRow, createNullRowHelper(rightRows))
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-                        <span class="cov0" title="0">result = append(result, merged)</span>
-                }
-        }
-
-        // Add unmatched right rows with NULL values for left columns
-        <span class="cov0" title="0">for i, rightRow := range rightRows </span><span class="cov0" title="0">{
-                if !rightMatched[i] </span><span class="cov0" title="0">{
-                        merged, err := mergeRowsHelper(createNullRowHelper(leftRows), rightRow)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-                        <span class="cov0" title="0">result = append(result, merged)</span>
-                }
-        }
-
-        <span class="cov0" title="0">return result, nil</span>
-}
-
-// executeCrossJoinHelper performs a CROSS JOIN (Cartesian product)
-func executeCrossJoinHelper(leftRows, rightRows []map[string]interface{}) ([]map[string]interface{}, error) <span class="cov8" title="1">{
-        var result []map[string]interface{}
-
-        for _, leftRow := range leftRows </span><span class="cov8" title="1">{
-                for _, rightRow := range rightRows </span><span class="cov8" title="1">{
-                        merged, err := mergeRowsHelper(leftRow, rightRow)
-                        if err != nil </span><span class="cov0" title="0">{
-                                return nil, err
-                        }</span>
-                        <span class="cov8" title="1">result = append(result, merged)</span>
-                }
-        }
-
-        <span class="cov8" title="1">return result, nil</span>
-}
-
-// mergeRowsHelper combines two rows into one
-// If both left and right have the same column name, returns an error
-func mergeRowsHelper(left, right map[string]interface{}) (map[string]interface{}, error) <span class="cov8" title="1">{
-        merged := make(map[string]interface{})
-
-        // Copy left row
-        for k, v := range left </span><span class="cov8" title="1">{
-                merged[k] = v
-        }</span>
-
-        // Copy right row - check for collisions (except _file which is allowed to be duplicated)
-        <span class="cov8" title="1">for k, v := range right </span><span class="cov8" title="1">{
-                if _, exists := merged[k]; exists </span><span class="cov8" title="1">{
-                        // Allow _file column to be duplicated - it's added by glob reads
-                        // When both sides have _file, we keep both but suffix them with the table position
-                        if k == "_file" </span><span class="cov8" title="1">{
-                                // Keep left as _file_left and right as _file_right
-                                if leftFile, ok := merged["_file"]; ok </span><span class="cov8" title="1">{
-                                        delete(merged, "_file")
-                                        merged["_file_left"] = leftFile
-                                        merged["_file_right"] = v
-                                }</span>
-                                <span class="cov8" title="1">continue</span>
-                        }
-                        <span class="cov8" title="1">return nil, fmt.Errorf("column name collision in JOIN: %q exists in both tables. Use table aliases to disambiguate (e.g., SELECT t1.%s, t2.%s FROM ...)", k, k, k)</span>
-                }
-                <span class="cov8" title="1">merged[k] = v</span>
-        }
-
-        <span class="cov8" title="1">return merged, nil</span>
-}
-
-// createNullRowHelper creates a row with NULL values for all columns from a sample row set.
-// For empty row sets, we need to infer columns from the schema or accept that we cannot
-// create proper NULL rows. In practice, this means OUTER JOINs with one empty side will
-// not include NULL columns for that side - this is a known limitation when joining empty
-// result sets without schema information.
-func createNullRowHelper(rows []map[string]interface{}) map[string]interface{} <span class="cov8" title="1">{
-        if len(rows) == 0 </span><span class="cov8" title="1">{
-                // Cannot create NULL row without knowing column names
-                // This is a limitation: outer joins with empty sides won't have NULL columns
-                return make(map[string]interface{})
-        }</span>
-
-        <span class="cov8" title="1">nullRow := make(map[string]interface{})
-        // Use first row as template to get column names
-        for col := range rows[0] </span><span class="cov8" title="1">{
-                nullRow[col] = nil
-        }</span>
-
-        <span class="cov8" title="1">return nullRow</span>
-}
-
-// handleSchemaMode handles the --schema flag by extracting and displaying schema information
-func handleSchemaMode(filename string, format string) <span class="cov8" title="1">{
-        // Resolve filename - for glob patterns, use first match
-        var filePath string
-
-        // Check if pattern contains glob wildcards
-        if strings.ContainsAny(filename, "*?[]{}") </span><span class="cov8" title="1">{
-                matches, err := filepath.Glob(filename)
-                if err != nil </span><span class="cov0" title="0">{
-                        fmt.Fprintf(os.Stderr, "Error: invalid glob pattern: %v\n", err)
-                        os.Exit(1)
-                }</span>
-
-                <span class="cov8" title="1">if len(matches) == 0 </span><span class="cov0" title="0">{
-                        fmt.Fprintf(os.Stderr, "Error: no files match pattern: %s\n", filename)
-                        os.Exit(1)
-                }</span>
-
-                <span class="cov8" title="1">filePath = matches[0]
-                // Print informational message to stderr
-                if len(matches) &gt; 1 </span><span class="cov8" title="1">{
-                        fmt.Fprintf(os.Stderr, "# Showing schema from: %s (%d files matched)\n", filePath, len(matches))
-                }</span>
-        } else<span class="cov8" title="1"> {
-                filePath = filename
-        }</span>
-
-        // Extract schema information using reader package
-        <span class="cov8" title="1">schemaInfos, err := reader.ExtractSchemaInfo(filePath)
-        if err != nil </span><span class="cov0" title="0">{
-                if os.IsNotExist(err) </span><span class="cov0" title="0">{
-                        fmt.Fprintf(os.Stderr, "Error: file '%s' not found\n", filePath)
-                        fmt.Fprintf(os.Stderr, "Please check the file path and try again.\n")
-                }</span> else<span class="cov0" title="0"> {
-                        fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
-                }</span>
-                <span class="cov0" title="0">os.Exit(1)</span>
-        }
-
-        // Convert reader.SchemaInfo to []map[string]interface{} for formatter compatibility
-        <span class="cov8" title="1">rows := make([]map[string]interface{}, len(schemaInfos))
-        for i, field := range schemaInfos </span><span class="cov8" title="1">{
-                rows[i] = map[string]interface{}{
-                        "name":          field.Name,
-                        "type":          field.Type,
-                        "physical_type": field.PhysicalType,
-                        "logical_type":  field.LogicalType,
-                        "required":      field.Required,
-                        "optional":      field.Optional,
-                        "repeated":      field.Repeated,
-                }
-        }</span>
-
-        // Format and output
-        <span class="cov8" title="1">var formatter output.Formatter
-        switch format </span>{
-        case "json", "jsonl":<span class="cov8" title="1">
-                formatter = output.NewJSONFormatter(os.Stdout)</span>
-        case "csv":<span class="cov8" title="1">
-                formatter = output.NewCSVFormatter(os.Stdout)</span>
-        default:<span class="cov0" title="0">
-                fmt.Fprintf(os.Stderr, "Error: unsupported format '%s'\n", format)
-                fmt.Fprintf(os.Stderr, "Supported formats: json, jsonl, csv\n")
-                os.Exit(1)</span>
-        }
-
-        <span class="cov8" title="1">if err := formatter.Format(rows); err != nil </span><span class="cov0" title="0">{
-                fmt.Fprintf(os.Stderr, "Error formatting output: %v\n", err)
-                os.Exit(1)
-        }</span>
-}
-</pre>
-		
-		<pre class="file" id="file1" style="display: none">package output
-
-import (
-        "encoding/csv"
-        "fmt"
-        "io"
-        "sort"
-)
-
-// CSVFormatter outputs rows as CSV format
-type CSVFormatter struct {
-        writer io.Writer
-}
-
-// NewCSVFormatter creates a new CSV formatter
-func NewCSVFormatter(w io.Writer) *CSVFormatter <span class="cov8" title="1">{
-        return &amp;CSVFormatter{writer: w}
-}</span>
-
-// SetOutput sets the output writer
-func (c *CSVFormatter) SetOutput(w io.Writer) <span class="cov8" title="1">{
-        c.writer = w
-}</span>
-
-// Format writes rows as CSV
-func (c *CSVFormatter) Format(rows []map[string]interface{}) error <span class="cov8" title="1">{
-        csvWriter := csv.NewWriter(c.writer)
-
-        if len(rows) == 0 </span><span class="cov8" title="1">{
-                csvWriter.Flush()
-                if err := csvWriter.Error(); err != nil </span><span class="cov0" title="0">{
-                        return fmt.Errorf("failed to flush CSV writer: %w", err)
-                }</span>
-                <span class="cov8" title="1">return nil</span>
-        }
-
-        // Extract all unique column names from all rows (in case of heterogeneous schemas)
-        // This handles cases like OUTER JOINs or sparse data where different rows may have different columns
-        <span class="cov8" title="1">columnSet := make(map[string]bool)
-        for _, row := range rows </span><span class="cov8" title="1">{
-                for col := range row </span><span class="cov8" title="1">{
-                        columnSet[col] = true
-                }</span>
-        }
-
-        // Convert to sorted slice for consistent ordering
-        <span class="cov8" title="1">columns := make([]string, 0, len(columnSet))
-        for col := range columnSet </span><span class="cov8" title="1">{
-                columns = append(columns, col)
-        }</span>
-        <span class="cov8" title="1">sort.Strings(columns)
-
-        // Write header
-        if err := csvWriter.Write(columns); err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-
-        // Write rows
-        <span class="cov8" title="1">for _, row := range rows </span><span class="cov8" title="1">{
-                record := make([]string, len(columns))
-                for i, col := range columns </span><span class="cov8" title="1">{
-                        record[i] = formatValue(row[col])
-                }</span>
-                <span class="cov8" title="1">if err := csvWriter.Write(record); err != nil </span><span class="cov0" title="0">{
-                        return err
-                }</span>
-        }
-
-        // Flush and check for errors
-        <span class="cov8" title="1">csvWriter.Flush()
-        if err := csvWriter.Error(); err != nil </span><span class="cov0" title="0">{
-                return fmt.Errorf("failed to flush CSV writer: %w", err)
-        }</span>
-
-        <span class="cov8" title="1">return nil</span>
-}
-
-// formatValue converts a value to string for CSV output
-func formatValue(v interface{}) string <span class="cov8" title="1">{
-        if v == nil </span><span class="cov8" title="1">{
-                return ""
-        }</span>
-
-        <span class="cov8" title="1">switch val := v.(type) </span>{
-        case string:<span class="cov8" title="1">
-                // Sanitize against CSV injection by prefixing dangerous characters
-                // that could trigger formula execution in spreadsheet applications
-                if len(val) &gt; 0 </span><span class="cov8" title="1">{
-                        firstChar := val[0]
-                        if firstChar == '=' || firstChar == '+' || firstChar == '-' || firstChar == '@' || firstChar == '\t' || firstChar == '\r' || firstChar == '\n' || firstChar == '|' </span><span class="cov0" title="0">{
-                                return "'" + val
-                        }</span>
-                }
-                <span class="cov8" title="1">return val</span>
-        case int, int8, int16, int32, int64:<span class="cov8" title="1">
-                return fmt.Sprintf("%d", val)</span>
-        case uint, uint8, uint16, uint32, uint64:<span class="cov0" title="0">
-                return fmt.Sprintf("%d", val)</span>
-        case float32, float64:<span class="cov8" title="1">
-                return fmt.Sprintf("%g", val)</span>
-        case bool:<span class="cov8" title="1">
-                return fmt.Sprintf("%t", val)</span>
-        default:<span class="cov0" title="0">
-                // For complex types, use JSON representation
-                return fmt.Sprintf("%v", val)</span>
-        }
-}
-</pre>
-		
-		<pre class="file" id="file2" style="display: none">package output
-
-import (
-        "encoding/json"
-        "io"
-)
-
-// JSONFormatter outputs rows as JSON Lines format
-type JSONFormatter struct {
-        writer io.Writer
-}
-
-// NewJSONFormatter creates a new JSON Lines formatter
-func NewJSONFormatter(w io.Writer) *JSONFormatter <span class="cov8" title="1">{
-        return &amp;JSONFormatter{writer: w}
-}</span>
-
-// SetOutput sets the output writer
-func (j *JSONFormatter) SetOutput(w io.Writer) <span class="cov8" title="1">{
-        j.writer = w
-}</span>
-
-// Format writes rows as JSON Lines (one JSON object per line)
-func (j *JSONFormatter) Format(rows []map[string]interface{}) error <span class="cov8" title="1">{
-        encoder := json.NewEncoder(j.writer)
-        for _, row := range rows </span><span class="cov8" title="1">{
-                if err := encoder.Encode(row); err != nil </span><span class="cov0" title="0">{
-                        return err
-                }</span>
-        }
-        <span class="cov8" title="1">return nil</span>
-}
-</pre>
-		
-		<pre class="file" id="file3" style="display: none">package query
+		<pre class="file" id="file0" style="display: none">package query
 
 import (
         "fmt"
-        "math"
         "strings"
 )
 
@@ -1121,7 +115,7 @@ func ApplyGroupByAndAggregate(rows []map[string]interface{}, groupByColumns []st
         }</span>
 
         // For GROUP BY queries, empty input returns empty output
-        <span class="cov8" title="1">if len(rows) == 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if len(rows) == 0 </span><span class="cov8" title="1">{
                 return rows, nil
         }</span>
 
@@ -1304,7 +298,7 @@ func evaluateSum(aggExpr *AggregateExpr, rows []map[string]interface{}) (interfa
                 if err != nil </span><span class="cov0" title="0">{
                         continue</span>
                 }
-                <span class="cov8" title="1">if value == nil </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if value == nil </span><span class="cov8" title="1">{
                         continue</span>
                 }
 
@@ -1317,7 +311,7 @@ func evaluateSum(aggExpr *AggregateExpr, rows []map[string]interface{}) (interfa
                 hasValues = true</span>
         }
 
-        <span class="cov8" title="1">if !hasValues </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if !hasValues </span><span class="cov8" title="1">{
                 return nil, nil // Return NULL if no values
         }</span>
 
@@ -1338,7 +332,7 @@ func evaluateAvg(aggExpr *AggregateExpr, rows []map[string]interface{}) (interfa
                 if err != nil </span><span class="cov0" title="0">{
                         continue</span>
                 }
-                <span class="cov8" title="1">if value == nil </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if value == nil </span><span class="cov8" title="1">{
                         continue</span>
                 }
 
@@ -1351,7 +345,7 @@ func evaluateAvg(aggExpr *AggregateExpr, rows []map[string]interface{}) (interfa
                 count++</span>
         }
 
-        <span class="cov8" title="1">if count == 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if count == 0 </span><span class="cov8" title="1">{
                 return nil, nil // Return NULL if no values
         }</span>
 
@@ -1490,14 +484,9 @@ func validateSelectListWithGroupBy(selectList []SelectItem, groupByColumns []str
 
         <span class="cov8" title="1">return nil</span>
 }
-
-// init ensures math package is available
-func init() <span class="cov8" title="1">{
-        _ = math.Abs(0)
-}</span>
 </pre>
 		
-		<pre class="file" id="file4" style="display: none">package query
+		<pre class="file" id="file1" style="display: none">package query
 
 import (
         "fmt"
@@ -1706,7 +695,7 @@ func (ctx *ExecutionContext) executeSelect(q *Query) ([]map[string]interface{}, 
                 }</span>
 
                 // Apply HAVING filter if present
-                <span class="cov8" title="1">if q.Having != nil </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if q.Having != nil </span><span class="cov8" title="1">{
                         rows, err = EvaluateHaving(rows, q.Having)
                         if err != nil </span><span class="cov0" title="0">{
                                 return nil, fmt.Errorf("failed to apply HAVING clause: %w", err)
@@ -1723,7 +712,7 @@ func (ctx *ExecutionContext) executeSelect(q *Query) ([]map[string]interface{}, 
         }
 
         // Apply DISTINCT if present
-        <span class="cov8" title="1">if q.Distinct </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if q.Distinct </span><span class="cov8" title="1">{
                 rows, err = ApplyDistinct(rows)
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, fmt.Errorf("failed to apply DISTINCT: %w", err)
@@ -1731,7 +720,7 @@ func (ctx *ExecutionContext) executeSelect(q *Query) ([]map[string]interface{}, 
         }
 
         // Apply ORDER BY if present
-        <span class="cov8" title="1">if len(q.OrderBy) &gt; 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if len(q.OrderBy) &gt; 0 </span><span class="cov8" title="1">{
                 rows, err = ApplyOrderBy(rows, q.OrderBy)
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, fmt.Errorf("failed to apply ORDER BY: %w", err)
@@ -1739,7 +728,7 @@ func (ctx *ExecutionContext) executeSelect(q *Query) ([]map[string]interface{}, 
         }
 
         // Apply LIMIT/OFFSET if present
-        <span class="cov8" title="1">if q.Limit != nil || q.Offset != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if q.Limit != nil || q.Offset != nil </span><span class="cov8" title="1">{
                 rows, err = ApplyLimitOffset(rows, q.Limit, q.Offset)
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, fmt.Errorf("failed to apply LIMIT/OFFSET: %w", err)
@@ -2349,12 +1338,11 @@ func createNullRow(rows []map[string]interface{}) map[string]interface{} <span c
 }
 </pre>
 		
-		<pre class="file" id="file5" style="display: none">package query
+		<pre class="file" id="file2" style="display: none">package query
 
 import (
         "fmt"
         "math"
-        "reflect"
         "sort"
         "strings"
 )
@@ -2740,7 +1728,7 @@ func ApplyOrderBy(rows []map[string]interface{}, orderBy []OrderByItem) ([]map[s
                         }
                         // Values are equal, continue to next ORDER BY column
                 }
-                <span class="cov0" title="0">return false</span> // All columns equal
+                <span class="cov8" title="1">return false</span> // All columns equal
         })
 
         <span class="cov8" title="1">return sorted, nil</span>
@@ -2791,13 +1779,13 @@ func compareValues(a, b interface{}) int <span class="cov8" title="1">{
         }
 
         // Try boolean comparison
-        <span class="cov0" title="0">aBool, aIsBool := toBool(a)
+        <span class="cov8" title="1">aBool, aIsBool := toBool(a)
         bBool, bIsBool := toBool(b)
-        if aIsBool &amp;&amp; bIsBool </span><span class="cov0" title="0">{
-                if !aBool &amp;&amp; bBool </span><span class="cov0" title="0">{
+        if aIsBool &amp;&amp; bIsBool </span><span class="cov8" title="1">{
+                if !aBool &amp;&amp; bBool </span><span class="cov8" title="1">{
                         return -1 // false &lt; true
                 }</span>
-                <span class="cov0" title="0">if aBool &amp;&amp; !bBool </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if aBool &amp;&amp; !bBool </span><span class="cov8" title="1">{
                         return 1 // true &gt; false
                 }</span>
                 <span class="cov0" title="0">return 0</span>
@@ -2953,15 +1941,9 @@ func findSegmentMatch(str, segment string) int <span class="cov8" title="1">{
 
         <span class="cov0" title="0">return -1</span>
 }
-
-// init registers reflection for common types
-func init() <span class="cov8" title="1">{
-        // This ensures reflect package is properly initialized
-        _ = reflect.TypeOf(0)
-}</span>
 </pre>
 		
-		<pre class="file" id="file6" style="display: none">package query
+		<pre class="file" id="file3" style="display: none">package query
 
 import (
         "fmt"
@@ -4043,7 +3025,7 @@ func (f *NullIfFunc) Evaluate(args []interface{}) (interface{}, error) <span cla
 }
 </pre>
 		
-		<pre class="file" id="file7" style="display: none">package query
+		<pre class="file" id="file4" style="display: none">package query
 
 import (
         "strings"
@@ -4339,7 +3321,7 @@ func Tokenize(input string) []Token <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file8" style="display: none">package query
+		<pre class="file" id="file5" style="display: none">package query
 
 import (
         "fmt"
@@ -5974,7 +4956,174 @@ func (p *Parser) parseWithClause() ([]CTE, error) <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file9" style="display: none">// Package query provides SQL query parsing and filtering for parquet data.
+		<pre class="file" id="file6" style="display: none">package query
+
+import (
+        "os"
+        "path/filepath"
+        "testing"
+        "time"
+
+        "github.com/parquet-go/parquet-go"
+)
+
+// BasicDataRow defines a simple test data structure with common data types
+type BasicDataRow struct {
+        ID     int64   `parquet:"id"`
+        Name   string  `parquet:"name"`
+        Age    int64   `parquet:"age"`
+        Salary float64 `parquet:"salary"`
+        Active bool    `parquet:"active"`
+        Score  float64 `parquet:"score"`
+}
+
+// ComplexDataRow defines a more complex test data structure with nullable and timestamp fields
+type ComplexDataRow struct {
+        ID        int64      `parquet:"id"`
+        Name      string     `parquet:"name"`
+        Age       *int64     `parquet:"age,optional"`
+        Timestamp time.Time  `parquet:"timestamp"`
+        Salary    *float64   `parquet:"salary,optional"`
+        Active    *bool      `parquet:"active,optional"`
+        Tags      []string   `parquet:"tags,list"`
+        Score     *float64   `parquet:"score,optional"`
+}
+
+// createBasicParquetFile creates a temporary parquet file with BasicDataRow structure
+// Returns the path to the created file
+func createBasicParquetFile(t *testing.T, rows []BasicDataRow) string <span class="cov8" title="1">{
+        t.Helper()
+        tmpDir := t.TempDir()
+        testFile := filepath.Join(tmpDir, "test_basic.parquet")
+
+        f, err := os.Create(testFile)
+        if err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to create test file: %v", err)
+        }</span>
+        <span class="cov8" title="1">defer f.Close()
+
+        writer := parquet.NewGenericWriter[BasicDataRow](f)
+        if _, err := writer.Write(rows); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to write test data: %v", err)
+        }</span>
+        <span class="cov8" title="1">if err := writer.Close(); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to close writer: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">return testFile</span>
+}
+
+// createComplexParquetFile creates a temporary parquet file with ComplexDataRow structure
+// Returns the path to the created file
+func createComplexParquetFile(t *testing.T, rows []ComplexDataRow) string <span class="cov8" title="1">{
+        t.Helper()
+        tmpDir := t.TempDir()
+        testFile := filepath.Join(tmpDir, "test_complex.parquet")
+
+        f, err := os.Create(testFile)
+        if err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to create test file: %v", err)
+        }</span>
+        <span class="cov8" title="1">defer f.Close()
+
+        writer := parquet.NewGenericWriter[ComplexDataRow](f)
+        if _, err := writer.Write(rows); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to write test data: %v", err)
+        }</span>
+        <span class="cov8" title="1">if err := writer.Close(); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to close writer: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">return testFile</span>
+}
+
+// createEmptyParquetFile creates a temporary empty parquet file with BasicDataRow structure
+// This is useful for testing edge cases with empty files
+func createEmptyParquetFile(t *testing.T) string <span class="cov8" title="1">{
+        t.Helper()
+        tmpDir := t.TempDir()
+        testFile := filepath.Join(tmpDir, "test_empty.parquet")
+
+        f, err := os.Create(testFile)
+        if err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to create empty test file: %v", err)
+        }</span>
+        <span class="cov8" title="1">defer f.Close()
+
+        writer := parquet.NewGenericWriter[BasicDataRow](f)
+        // Write empty slice - no rows
+        if _, err := writer.Write([]BasicDataRow{}); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to write empty data: %v", err)
+        }</span>
+        <span class="cov8" title="1">if err := writer.Close(); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to close writer: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">return testFile</span>
+}
+
+// createNamedBasicParquetFile creates a parquet file with a specific name in a temp directory
+// Useful for tests that need specific file names (e.g., join tests with multiple files)
+func createNamedBasicParquetFile(t *testing.T, dir, filename string, rows []BasicDataRow) string <span class="cov8" title="1">{
+        t.Helper()
+        testFile := filepath.Join(dir, filename)
+
+        f, err := os.Create(testFile)
+        if err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to create test file %s: %v", filename, err)
+        }</span>
+        <span class="cov8" title="1">defer f.Close()
+
+        writer := parquet.NewGenericWriter[BasicDataRow](f)
+        if _, err := writer.Write(rows); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to write test data to %s: %v", filename, err)
+        }</span>
+        <span class="cov8" title="1">if err := writer.Close(); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to close writer for %s: %v", filename, err)
+        }</span>
+
+        <span class="cov8" title="1">return testFile</span>
+}
+
+// createNamedComplexParquetFile creates a complex parquet file with a specific name
+func createNamedComplexParquetFile(t *testing.T, dir, filename string, rows []ComplexDataRow) string <span class="cov8" title="1">{
+        t.Helper()
+        testFile := filepath.Join(dir, filename)
+
+        f, err := os.Create(testFile)
+        if err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to create test file %s: %v", filename, err)
+        }</span>
+        <span class="cov8" title="1">defer f.Close()
+
+        writer := parquet.NewGenericWriter[ComplexDataRow](f)
+        if _, err := writer.Write(rows); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to write test data to %s: %v", filename, err)
+        }</span>
+        <span class="cov8" title="1">if err := writer.Close(); err != nil </span><span class="cov0" title="0">{
+                t.Fatalf("failed to close writer for %s: %v", filename, err)
+        }</span>
+
+        <span class="cov8" title="1">return testFile</span>
+}
+
+// int64Ptr returns a pointer to an int64 value
+func int64Ptr(v int64) *int64 <span class="cov8" title="1">{
+        return &amp;v
+}</span>
+
+// float64Ptr returns a pointer to a float64 value
+func float64Ptr(v float64) *float64 <span class="cov8" title="1">{
+        return &amp;v
+}</span>
+
+// boolPtr returns a pointer to a bool value
+func boolPtr(v bool) *bool <span class="cov8" title="1">{
+        return &amp;v
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">// Package query provides SQL query parsing and filtering for parquet data.
 //
 // It implements a SQL-like query language with support for WHERE clauses,
 // comparison operators, and boolean logic (AND/OR). The package includes
@@ -6555,7 +5704,7 @@ func (s *ScalarSubqueryExpr) EvaluateSelect(row map[string]interface{}) (interfa
 }</span>
 </pre>
 		
-		<pre class="file" id="file10" style="display: none">package query
+		<pre class="file" id="file8" style="display: none">package query
 
 import (
         "errors"
@@ -6661,7 +5810,7 @@ func (c *ExpressionDepthCounter) Exit() <span class="cov8" title="1">{
 }</span>
 </pre>
 		
-		<pre class="file" id="file11" style="display: none">package query
+		<pre class="file" id="file9" style="display: none">package query
 
 import (
         "fmt"
@@ -7295,413 +6444,6 @@ func rowsEqualOnOrderBy(row1, row2 map[string]interface{}, orderBy []OrderByItem
                 }</span>
         }
         <span class="cov8" title="1">return true</span>
-}
-</pre>
-		
-		<pre class="file" id="file12" style="display: none">// Package reader provides functionality for reading Apache Parquet files.
-//
-// It uses the segmentio/parquet-go library to read parquet files and returns
-// rows as maps for flexible data access.
-package reader
-
-import (
-        "errors"
-        "fmt"
-        "io"
-        "os"
-        "path/filepath"
-        "strings"
-
-        "github.com/parquet-go/parquet-go"
-)
-
-// Reader reads parquet files and returns rows as maps.
-//
-// It maintains both an OS file handle and a parquet file handle to enable
-// proper resource cleanup.
-type Reader struct {
-        file   *os.File
-        pqFile *parquet.File
-}
-
-// NewReader creates a new parquet reader for the specified file path.
-//
-// The file is opened and validated as a parquet file. Returns an error if
-// the file doesn't exist or is not a valid parquet file.
-//
-// Example:
-//
-//        reader, err := NewReader("data.parquet")
-//        if err != nil {
-//            log.Fatal(err)
-//        }
-//        defer reader.Close()
-func NewReader(path string) (*Reader, error) <span class="cov8" title="1">{
-        file, err := os.Open(path)
-        if err != nil </span><span class="cov8" title="1">{
-                return nil, fmt.Errorf("failed to open file: %w", err)
-        }</span>
-
-        <span class="cov8" title="1">stat, err := file.Stat()
-        if err != nil </span><span class="cov0" title="0">{
-                _ = file.Close()
-                return nil, fmt.Errorf("failed to stat file: %w", err)
-        }</span>
-
-        <span class="cov8" title="1">pqFile, err := parquet.OpenFile(file, stat.Size())
-        if err != nil </span><span class="cov8" title="1">{
-                _ = file.Close()
-                return nil, fmt.Errorf("failed to open parquet file: %w", err)
-        }</span>
-
-        <span class="cov8" title="1">return &amp;Reader{
-                file:   file,
-                pqFile: pqFile,
-        }, nil</span>
-}
-
-// ReadAll reads all rows from the parquet file into memory.
-//
-// Each row is returned as a map where keys are column names and values are
-// the column values. The entire file is loaded into memory, so this method
-// may not be suitable for very large files.
-//
-// Returns an error if any row fails to read.
-func (r *Reader) ReadAll() ([]map[string]interface{}, error) <span class="cov8" title="1">{
-        rows := make([]map[string]interface{}, 0)
-
-        reader := parquet.NewReader(r.pqFile)
-        defer func() </span><span class="cov8" title="1">{ _ = reader.Close() }</span>()
-
-        <span class="cov8" title="1">for </span><span class="cov8" title="1">{
-                row := make(map[string]interface{})
-                err := reader.Read(&amp;row)
-                if err != nil </span><span class="cov8" title="1">{
-                        // Use errors.Is for proper EOF detection
-                        if errors.Is(err, io.EOF) </span><span class="cov8" title="1">{
-                                break</span>
-                        }
-                        <span class="cov0" title="0">return nil, fmt.Errorf("failed to read row: %w", err)</span>
-                }
-                <span class="cov8" title="1">rows = append(rows, row)</span>
-        }
-
-        <span class="cov8" title="1">return rows, nil</span>
-}
-
-// Schema returns the parquet file schema.
-//
-// The schema contains metadata about the columns, types, and structure
-// of the parquet file.
-func (r *Reader) Schema() *parquet.Schema <span class="cov8" title="1">{
-        return r.pqFile.Schema()
-}</span>
-
-// Close closes the parquet reader and releases associated resources.
-//
-// Should be called when done reading to avoid resource leaks. It is safe
-// to call Close multiple times.
-func (r *Reader) Close() error <span class="cov8" title="1">{
-        if r.file != nil </span><span class="cov8" title="1">{
-                return r.file.Close()
-        }</span>
-        <span class="cov0" title="0">return nil</span>
-}
-
-// ReadMultipleFiles reads all rows from multiple parquet files matching a glob pattern.
-//
-// The pattern can include wildcards:
-//   - * matches any sequence of non-separator characters
-//   - ? matches any single non-separator character
-//   - [range] matches any character in range
-//   - {a,b} matches either a or b
-//
-// Examples:
-//   - "data/*.parquet" - all parquet files in data directory
-//   - "data/2024-*.parquet" - parquet files starting with 2024- in data directory
-//   - "data/*/*.parquet" - parquet files in subdirectories of data
-//
-// Each row is tagged with a "_file" column containing the source file path.
-// Returns an error if no files match the pattern or if any file fails to read.
-func ReadMultipleFiles(pattern string) ([]map[string]interface{}, error) <span class="cov8" title="1">{
-        // Check if pattern contains glob wildcards
-        if !strings.ContainsAny(pattern, "*?[]{}") </span><span class="cov8" title="1">{
-                // Not a glob pattern, read single file
-                r, err := NewReader(pattern)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-                <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{ _ = r.Close() }</span>()
-
-                <span class="cov8" title="1">rows, err := r.ReadAll()
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, err
-                }</span>
-
-                // Only tag rows with _file if reading multiple files (glob pattern)
-                // Don't add _file for single file reads to avoid changing output shape
-                // and potentially overwriting existing _file column
-
-                <span class="cov8" title="1">return rows, nil</span>
-        }
-
-        // Expand glob pattern
-        <span class="cov8" title="1">matches, err := filepath.Glob(pattern)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, fmt.Errorf("invalid glob pattern: %w", err)
-        }</span>
-
-        <span class="cov8" title="1">if len(matches) == 0 </span><span class="cov8" title="1">{
-                return nil, fmt.Errorf("no files match pattern: %s", pattern)
-        }</span>
-
-        // Limit number of files to prevent resource exhaustion
-        <span class="cov8" title="1">const maxFiles = 1000
-        if len(matches) &gt; maxFiles </span><span class="cov0" title="0">{
-                return nil, fmt.Errorf("glob pattern matched too many files (%d), maximum is %d", len(matches), maxFiles)
-        }</span>
-
-        // Read all matching files
-        <span class="cov8" title="1">var allRows []map[string]interface{}
-        for _, filePath := range matches </span><span class="cov8" title="1">{
-                r, err := NewReader(filePath)
-                if err != nil </span><span class="cov0" title="0">{
-                        return nil, fmt.Errorf("failed to read %s: %w", filePath, err)
-                }</span>
-
-                <span class="cov8" title="1">rows, readErr := r.ReadAll()
-                closeErr := r.Close()
-
-                // Preserve the first error encountered
-                if readErr != nil </span><span class="cov0" title="0">{
-                        return nil, fmt.Errorf("failed to read rows from %s: %w", filePath, readErr)
-                }</span>
-                <span class="cov8" title="1">if closeErr != nil </span><span class="cov0" title="0">{
-                        return nil, fmt.Errorf("failed to close %s: %w", filePath, closeErr)
-                }</span>
-
-                // Tag each row with the source file (only for multi-file reads)
-                // Always set _file column to track source file
-                <span class="cov8" title="1">for i := range rows </span><span class="cov8" title="1">{
-                        rows[i]["_file"] = filePath
-                }</span>
-
-                <span class="cov8" title="1">allRows = append(allRows, rows...)</span>
-        }
-
-        <span class="cov8" title="1">return allRows, nil</span>
-}
-</pre>
-		
-		<pre class="file" id="file13" style="display: none">package reader
-
-import (
-        "fmt"
-
-        "github.com/parquet-go/parquet-go"
-)
-
-// SchemaInfo represents metadata about a single column in a Parquet file.
-type SchemaInfo struct {
-        Name         string `json:"name"`
-        Type         string `json:"type"`
-        PhysicalType string `json:"physical_type"`
-        LogicalType  string `json:"logical_type"`
-        Required     bool   `json:"required"`
-        Optional     bool   `json:"optional"`
-        Repeated     bool   `json:"repeated"`
-}
-
-// ExtractSchemaInfo extracts schema information from a Parquet file.
-//
-// Returns a slice of SchemaInfo containing metadata about each column including
-// name, type information, and whether the field is required/optional/repeated.
-//
-// For nested types, field names use dot notation (e.g., "address.street").
-func ExtractSchemaInfo(path string) ([]SchemaInfo, error) <span class="cov8" title="1">{
-        reader, err := NewReader(path)
-        if err != nil </span><span class="cov8" title="1">{
-                return nil, fmt.Errorf("failed to open parquet file: %w", err)
-        }</span>
-        <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{ _ = reader.Close() }</span>()
-
-        <span class="cov8" title="1">schema := reader.Schema()
-        fields := schema.Fields()
-
-        var schemaInfos []SchemaInfo
-        for _, field := range fields </span><span class="cov8" title="1">{
-                schemaInfos = append(schemaInfos, extractFieldInfo(field, "")...)
-        }</span>
-
-        <span class="cov8" title="1">return schemaInfos, nil</span>
-}
-
-// extractFieldInfo recursively extracts schema information from a field.
-// The prefix parameter is used to build dot-notation names for nested fields.
-func extractFieldInfo(field parquet.Field, prefix string) []SchemaInfo <span class="cov8" title="1">{
-        return extractFieldInfoWithParentRepeated(field, prefix, false)
-}</span>
-
-// extractFieldInfoWithParentRepeated recursively extracts schema information from a field,
-// tracking whether any parent field is repeated.
-func extractFieldInfoWithParentRepeated(field parquet.Field, prefix string, parentRepeated bool) []SchemaInfo <span class="cov8" title="1">{
-        var infos []SchemaInfo
-
-        // Build field name with prefix for nested fields
-        fieldName := field.Name()
-        if prefix != "" </span><span class="cov8" title="1">{
-                fieldName = prefix + "." + fieldName
-        }</span>
-
-        // Check if this field or any parent is repeated
-        <span class="cov8" title="1">isRepeated := parentRepeated || field.Repeated()
-
-        // Check if field has child fields (nested type/group)
-        childFields := field.Fields()
-        if len(childFields) &gt; 0 </span><span class="cov8" title="1">{
-                // This is a group/struct - recurse into child fields
-                // Don't create a SchemaInfo for the group itself, only for leaf fields
-                // Propagate repeated status to children
-                for _, child := range childFields </span><span class="cov8" title="1">{
-                        infos = append(infos, extractFieldInfoWithParentRepeated(child, fieldName, isRepeated)...)
-                }</span>
-                <span class="cov8" title="1">return infos</span>
-        }
-
-        // This is a leaf field - extract type information
-        <span class="cov8" title="1">physicalType := getPhysicalType(field)
-        logicalType := getLogicalType(field)
-        userType := getUserFriendlyType(field)
-
-        // Extract repetition information
-        required := field.Required()
-        optional := field.Optional()
-
-        info := SchemaInfo{
-                Name:         fieldName,
-                Type:         userType,
-                PhysicalType: physicalType,
-                LogicalType:  logicalType,
-                Required:     required,
-                Optional:     optional,
-                Repeated:     isRepeated,
-        }
-
-        infos = append(infos, info)
-
-        return infos</span>
-}
-
-// getPhysicalType returns the physical type name of a Parquet field.
-func getPhysicalType(field parquet.Field) string <span class="cov8" title="1">{
-        if field.Type() == nil </span><span class="cov0" title="0">{
-                return "GROUP"
-        }</span>
-
-        <span class="cov8" title="1">kind := field.Type().Kind()
-        switch kind </span>{
-        case parquet.Boolean:<span class="cov8" title="1">
-                return "BOOLEAN"</span>
-        case parquet.Int32:<span class="cov8" title="1">
-                return "INT32"</span>
-        case parquet.Int64:<span class="cov8" title="1">
-                return "INT64"</span>
-        case parquet.Int96:<span class="cov0" title="0">
-                return "INT96"</span>
-        case parquet.Float:<span class="cov8" title="1">
-                return "FLOAT"</span>
-        case parquet.Double:<span class="cov8" title="1">
-                return "DOUBLE"</span>
-        case parquet.ByteArray:<span class="cov8" title="1">
-                return "BYTE_ARRAY"</span>
-        case parquet.FixedLenByteArray:<span class="cov0" title="0">
-                return "FIXED_LEN_BYTE_ARRAY"</span>
-        default:<span class="cov0" title="0">
-                return "UNKNOWN"</span>
-        }
-}
-
-// getLogicalType returns the logical type name of a Parquet field.
-func getLogicalType(field parquet.Field) string <span class="cov8" title="1">{
-        if field.Type() == nil </span><span class="cov0" title="0">{
-                return ""
-        }</span>
-
-        <span class="cov8" title="1">logicalType := field.Type().LogicalType()
-        if logicalType == nil </span><span class="cov8" title="1">{
-                return ""
-        }</span>
-
-        // Use String() method which provides the logical type name
-        <span class="cov8" title="1">return logicalType.String()</span>
-}
-
-// getUserFriendlyType returns a user-friendly type name for a Parquet field.
-//
-// This converts Parquet's physical and logical types into simpler, more
-// recognizable type names for end users.
-func getUserFriendlyType(field parquet.Field) string <span class="cov8" title="1">{
-        if field.Type() == nil </span><span class="cov0" title="0">{
-                return "GROUP"
-        }</span>
-
-        // Check logical type first for more specific typing
-        <span class="cov8" title="1">logicalType := field.Type().LogicalType()
-        if logicalType != nil </span><span class="cov8" title="1">{
-                logicalTypeStr := logicalType.String()
-                switch logicalTypeStr </span>{
-                case "STRING", "UTF8":<span class="cov8" title="1">
-                        return "STRING"</span>
-                case "ENUM":<span class="cov0" title="0">
-                        return "ENUM"</span>
-                case "UUID":<span class="cov0" title="0">
-                        return "UUID"</span>
-                case "INT":<span class="cov0" title="0">
-                        // For INT logical type, check the physical type
-                        kind := field.Type().Kind()
-                        switch kind </span>{
-                        case parquet.Int32:<span class="cov0" title="0">
-                                return "INT32"</span>
-                        case parquet.Int64:<span class="cov0" title="0">
-                                return "INT64"</span>
-                        }
-                case "DATE":<span class="cov0" title="0">
-                        return "DATE"</span>
-                case "TIME":<span class="cov0" title="0">
-                        return "TIME"</span>
-                case "TIMESTAMP":<span class="cov0" title="0">
-                        return "TIMESTAMP"</span>
-                case "DECIMAL":<span class="cov0" title="0">
-                        return "DECIMAL"</span>
-                case "JSON":<span class="cov0" title="0">
-                        return "JSON"</span>
-                case "BSON":<span class="cov0" title="0">
-                        return "BSON"</span>
-                }
-        }
-
-        // Fall back to physical type
-        <span class="cov8" title="1">kind := field.Type().Kind()
-        switch kind </span>{
-        case parquet.Boolean:<span class="cov8" title="1">
-                return "BOOLEAN"</span>
-        case parquet.Int32:<span class="cov8" title="1">
-                return "INT32"</span>
-        case parquet.Int64:<span class="cov8" title="1">
-                return "INT64"</span>
-        case parquet.Int96:<span class="cov0" title="0">
-                return "INT96"</span>
-        case parquet.Float:<span class="cov8" title="1">
-                return "FLOAT32"</span>
-        case parquet.Double:<span class="cov8" title="1">
-                return "FLOAT64"</span>
-        case parquet.ByteArray:<span class="cov0" title="0">
-                return "BYTE_ARRAY"</span>
-        case parquet.FixedLenByteArray:<span class="cov0" title="0">
-                return "FIXED_LEN_BYTE_ARRAY"</span>
-        default:<span class="cov0" title="0">
-                return "UNKNOWN"</span>
-        }
 }
 </pre>
 		

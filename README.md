@@ -1130,6 +1130,29 @@ When contributing new features or bug fixes:
 
 Test files are located alongside the code they test (e.g., `query/function.go` has tests in `query/function_test.go`).
 
+### Test Helper Infrastructure
+
+The project includes comprehensive test helpers for creating parquet test files in `query/testdata_helpers.go`. When writing tests that require parquet data:
+
+- Use `createBasicParquetFile()` for simple test data with common types (int, string, float, bool)
+- Use `createComplexParquetFile()` for tests requiring nullable fields, timestamps, or arrays
+- Use `createEmptyParquetFile()` for edge case testing
+- Use `createNamedBasicParquetFile()` for multi-file tests (e.g., JOINs)
+
+Example:
+```go
+func TestQuery(t *testing.T) {
+    rows := []BasicDataRow{
+        {ID: 1, Name: "Alice", Age: 30, Salary: 50000, Active: true, Score: 85.5},
+        {ID: 2, Name: "Bob", Age: 25, Salary: 45000, Active: false, Score: 72.3},
+    }
+    testFile := createBasicParquetFile(t, rows)
+    // Test implementation - file is automatically cleaned up
+}
+```
+
+For detailed patterns and conventions, see `CLAUDE.md`.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

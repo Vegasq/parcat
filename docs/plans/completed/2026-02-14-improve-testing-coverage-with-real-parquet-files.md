@@ -108,6 +108,6 @@ Comprehensive test coverage improvement for parcat query engine using real parqu
 
 ## Completion
 
-- [ ] Update README.md if testing documentation needed
-- [ ] Update CLAUDE.md with test file generation patterns
-- [ ] Move this plan to docs/plans/completed/
+- [x] Update README.md if testing documentation needed
+- [x] Update CLAUDE.md with test file generation patterns
+- [x] Move this plan to docs/plans/completed/
