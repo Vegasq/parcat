@@ -43,10 +43,10 @@ Review and improve test coverage for parcat SQL library
 - [x] run project test suite - must pass before task 2
 
 ### Task 2: Add tests for type conversion functions
-- [ ] Test functions: CastFunc, TryCastFunc, ToDateFunc, SplitFunc, RandomFunc, MinFunc, MaxFunc
-- [ ] Write tests in query/function_test.go
-- [ ] Run: `go test -v ./query -run TestConversion`
-- [ ] run project test suite - must pass before task 3
+- [x] Test functions: CastFunc, TryCastFunc, ToDateFunc, SplitFunc, RandomFunc, MinFunc, MaxFunc
+- [x] Write tests in query/function_test.go
+- [x] Run: `go test -v ./query -run TestConversion`
+- [x] run project test suite - must pass before task 3
 
 ### Task 3: Improve executor.go coverage
 - [ ] Add tests for EvaluateSelectExpression edge cases (8.3% to 60+%)
