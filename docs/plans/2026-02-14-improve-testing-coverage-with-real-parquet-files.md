@@ -48,14 +48,14 @@ Comprehensive test coverage improvement for parcat query engine using real parqu
 
 ### Task 2: Implement basic query feature tests with real parquet files
 
-- [ ] Create query/integration_parquet_test.go
-- [ ] Add TestParquetFilter with WHERE clause variations (=, !=, <, >, <=, >=, AND, OR, NOT)
-- [ ] Add TestParquetProjection with column selection and aliasing
-- [ ] Add TestParquetDistinct for DISTINCT keyword
-- [ ] Add TestParquetLimitOffset for pagination
-- [ ] Add TestParquetOrderBy with ASC/DESC and multiple columns
-- [ ] Write tests for this task - verify all scenarios pass
-- [ ] Run project test suite - must pass before task 3
+- [x] Create query/integration_parquet_test.go
+- [x] Add TestParquetFilter with WHERE clause variations (=, !=, <, >, <=, >=, AND, OR, NOT)
+- [x] Add TestParquetProjection with column selection and aliasing
+- [x] Add TestParquetDistinct for DISTINCT keyword
+- [x] Add TestParquetLimitOffset for pagination
+- [x] Add TestParquetOrderBy with ASC/DESC and multiple columns
+- [x] Write tests for this task - verify all scenarios pass
+- [x] Run project test suite - must pass before task 3
 
 ### Task 3: Implement aggregation and grouping tests
 
