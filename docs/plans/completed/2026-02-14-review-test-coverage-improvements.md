@@ -92,5 +92,5 @@ Review and improve test coverage for parcat SQL library
 
 ## Finalization
 
-- [ ] update README.md with testing instructions and coverage badges if applicable
-- [ ] move this plan to `docs/plans/completed/`
+- [x] update README.md with testing instructions and coverage badges if applicable
+- [x] move this plan to `docs/plans/completed/`

@@ -1058,6 +1058,78 @@ This change makes parcat fully usable as a Go library with a stable, documented 
 
 - [github.com/segmentio/parquet-go](https://github.com/segmentio/parquet-go) - Pure Go Parquet library
 
+## Testing
+
+This project maintains high test coverage to ensure reliability and correctness.
+
+### Running Tests
+
+Run the full test suite:
+```bash
+go test ./...
+```
+
+Run tests with race detection:
+```bash
+go test -race ./...
+```
+
+Run tests with verbose output:
+```bash
+go test -v ./...
+```
+
+Run tests for a specific package:
+```bash
+go test ./query
+go test ./reader
+go test ./output
+go test ./cmd/parcat
+```
+
+### Test Coverage
+
+Generate and view test coverage:
+```bash
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+
+# View coverage summary
+go tool cover -func=coverage.out
+
+# Generate HTML coverage report
+go tool cover -html=coverage.out -o coverage.html
+```
+
+Current test coverage:
+- Overall statement coverage: 75+%
+- query package: 80+%
+- reader package: 80+%
+- output package: 83+%
+- cmd/parcat package: 50+%
+
+### Code Quality
+
+Run linter checks:
+```bash
+go vet ./...
+```
+
+If golangci-lint is installed:
+```bash
+golangci-lint run
+```
+
+### Writing Tests
+
+When contributing new features or bug fixes:
+- Add tests for all new functionality
+- Ensure all tests pass before submitting
+- Maintain or improve test coverage
+- Test edge cases and error conditions
+
+Test files are located alongside the code they test (e.g., `query/function.go` has tests in `query/function_test.go`).
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
