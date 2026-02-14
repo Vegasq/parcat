@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 )
 
 // CSVFormatter outputs rows as CSV format
@@ -88,7 +89,8 @@ func formatValue(v interface{}) string {
 		if len(val) > 0 {
 			firstChar := val[0]
 			if firstChar == '=' || firstChar == '+' || firstChar == '-' || firstChar == '@' || firstChar == '\t' || firstChar == '\r' || firstChar == '\n' || firstChar == '|' {
-				return "'" + val
+				// Escape existing single quotes and prefix with quote to prevent formula injection
+				return "'" + strings.ReplaceAll(val, "'", "''")
 			}
 		}
 		return val

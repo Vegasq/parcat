@@ -3,7 +3,6 @@ package query
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"sort"
 	"strings"
 )
@@ -601,10 +600,4 @@ func findSegmentMatch(str, segment string) int {
 	}
 
 	return -1
-}
-
-// init registers reflection for common types
-func init() {
-	// This ensures reflect package is properly initialized
-	_ = reflect.TypeOf(0)
 }

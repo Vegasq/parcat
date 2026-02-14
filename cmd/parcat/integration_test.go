@@ -43,38 +43,6 @@ func createTestParquetFile(t *testing.T, dir, filename string, rows []TestRow) s
 	return testFile
 }
 
-// captureOutput captures stdout during function execution
-func captureOutput(t *testing.T, fn func()) string {
-	t.Helper()
-
-	// Save original stdout
-	oldStdout := os.Stdout
-
-	// Create pipe
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-
-	// Replace stdout
-	os.Stdout = w
-
-	// Execute function
-	fn()
-
-	// Close writer and restore stdout
-	w.Close()
-	os.Stdout = oldStdout
-
-	// Read captured output
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatalf("failed to read from pipe: %v", err)
-	}
-
-	return buf.String()
-}
-
 func TestMain_BasicQuery(t *testing.T) {
 	// Create temporary directory and test file
 	tmpDir := t.TempDir()
@@ -129,7 +97,7 @@ func TestMain_SchemaMode(t *testing.T) {
 
 		handleSchemaMode(testFile, "jsonl")
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		var buf bytes.Buffer
@@ -155,7 +123,7 @@ func TestMain_SchemaMode(t *testing.T) {
 
 		handleSchemaMode(testFile, "csv")
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		var buf bytes.Buffer
@@ -192,7 +160,9 @@ func TestMain_JoinOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create dept file: %v", err)
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	deptRows := []DeptRow{
 		{UserID: 1, Dept: "Engineering"},
@@ -203,7 +173,9 @@ func TestMain_JoinOperations(t *testing.T) {
 	if _, err := writer.Write(deptRows); err != nil {
 		t.Fatalf("failed to write dept data: %v", err)
 	}
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		t.Fatalf("failed to close writer: %v", err)
+	}
 
 	// Verify files exist
 	if _, err := os.Stat(file1); err != nil {
@@ -520,12 +492,12 @@ func TestHandleSchemaMode_GlobPattern(t *testing.T) {
 
 	handleSchemaMode(pattern, "jsonl")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Verify schema output was produced
