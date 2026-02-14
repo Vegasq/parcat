@@ -63,6 +63,6 @@
 //	}
 //	defer reader.Close()
 //
-// The package uses github.com/segmentio/parquet-go for the underlying
+// The package uses github.com/parquet-go/parquet-go for the underlying
 // parquet file operations.
 package reader

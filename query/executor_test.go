@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/segmentio/parquet-go"
+	"github.com/parquet-go/parquet-go"
 	"github.com/vegasq/parcat/reader"
 )
 
@@ -14,25 +14,13 @@ import (
 func createTestParquetFile(t *testing.T, path string, rows []map[string]interface{}) {
 	t.Helper()
 
-	// Convert to typed structs for parquet writer
-	type Row struct {
-		Name string `parquet:"name"`
-		Age  int64  `parquet:"age"`
+	if len(rows) == 0 {
+		t.Fatal("no rows provided to createTestParquetFile")
 	}
 
-	var typedRows []Row
-	for _, row := range rows {
-		typedRow := Row{}
-		if v, ok := row["name"].(string); ok {
-			typedRow.Name = v
-		}
-		if v, ok := row["age"].(int64); ok {
-			typedRow.Age = v
-		} else if v, ok := row["age"].(int); ok {
-			typedRow.Age = int64(v)
-		}
-		typedRows = append(typedRows, typedRow)
-	}
+	// Flexible row type that can handle various column names
+	// We determine which columns are present from the first row
+	firstRow := rows[0]
 
 	f, err := os.Create(path)
 	if err != nil {
@@ -40,12 +28,139 @@ func createTestParquetFile(t *testing.T, path string, rows []map[string]interfac
 	}
 	defer func() { _ = f.Close() }()
 
-	writer := parquet.NewGenericWriter[Row](f)
-	if _, err := writer.Write(typedRows); err != nil {
-		t.Fatalf("failed to write test data: %v", err)
+	// Check which columns are present and create appropriate struct type
+	hasName := false
+	hasAge := false
+	hasID := false
+	hasVal := false
+
+	for col := range firstRow {
+		switch col {
+		case "name":
+			hasName = true
+		case "age":
+			hasAge = true
+		case "id":
+			hasID = true
+		case "val":
+			hasVal = true
+		}
 	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("failed to close writer: %v", err)
+
+	// Convert maps to typed rows based on detected columns
+	// This is ugly but necessary because parquet requires static types
+	if hasName && hasAge && !hasID && !hasVal {
+		// Original test case: name + age
+		type Row struct {
+			Name string `parquet:"name"`
+			Age  int64  `parquet:"age"`
+		}
+		var typedRows []Row
+		for _, row := range rows {
+			r := Row{}
+			if v, ok := row["name"].(string); ok {
+				r.Name = v
+			}
+			if v, ok := row["age"].(int64); ok {
+				r.Age = v
+			} else if v, ok := row["age"].(int); ok {
+				r.Age = int64(v)
+			}
+			typedRows = append(typedRows, r)
+		}
+		writer := parquet.NewGenericWriter[Row](f)
+		if _, err := writer.Write(typedRows); err != nil {
+			t.Fatalf("failed to write test data: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+	} else if hasVal && !hasName && !hasAge && !hasID {
+		// CTE test case: val only
+		type Row struct {
+			Val int64 `parquet:"val"`
+		}
+		var typedRows []Row
+		for _, row := range rows {
+			r := Row{}
+			if v, ok := row["val"].(int64); ok {
+				r.Val = v
+			} else if v, ok := row["val"].(int); ok {
+				r.Val = int64(v)
+			}
+			typedRows = append(typedRows, r)
+		}
+		writer := parquet.NewGenericWriter[Row](f)
+		if _, err := writer.Write(typedRows); err != nil {
+			t.Fatalf("failed to write test data: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+	} else if hasID && hasName && !hasVal {
+		// CTE test case: id + name
+		type Row struct {
+			ID   int64  `parquet:"id"`
+			Name string `parquet:"name"`
+		}
+		var typedRows []Row
+		for _, row := range rows {
+			r := Row{}
+			if v, ok := row["id"].(int64); ok {
+				r.ID = v
+			} else if v, ok := row["id"].(int); ok {
+				r.ID = int64(v)
+			}
+			if v, ok := row["name"].(string); ok {
+				r.Name = v
+			}
+			typedRows = append(typedRows, r)
+		}
+		writer := parquet.NewGenericWriter[Row](f)
+		if _, err := writer.Write(typedRows); err != nil {
+			t.Fatalf("failed to write test data: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+	} else {
+		// Fallback: support all possible columns
+		type Row struct {
+			Name string `parquet:"name,optional"`
+			Age  int64  `parquet:"age,optional"`
+			ID   int64  `parquet:"id,optional"`
+			Val  int64  `parquet:"val,optional"`
+		}
+		var typedRows []Row
+		for _, row := range rows {
+			r := Row{}
+			if v, ok := row["name"].(string); ok {
+				r.Name = v
+			}
+			if v, ok := row["age"].(int64); ok {
+				r.Age = v
+			} else if v, ok := row["age"].(int); ok {
+				r.Age = int64(v)
+			}
+			if v, ok := row["id"].(int64); ok {
+				r.ID = v
+			} else if v, ok := row["id"].(int); ok {
+				r.ID = int64(v)
+			}
+			if v, ok := row["val"].(int64); ok {
+				r.Val = v
+			} else if v, ok := row["val"].(int); ok {
+				r.Val = int64(v)
+			}
+			typedRows = append(typedRows, r)
+		}
+		writer := parquet.NewGenericWriter[Row](f)
+		if _, err := writer.Write(typedRows); err != nil {
+			t.Fatalf("failed to write test data: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
 	}
 }
 
