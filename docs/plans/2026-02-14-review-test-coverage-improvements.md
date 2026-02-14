@@ -69,12 +69,12 @@ Review and improve test coverage for parcat SQL library
 - [x] run project test suite - must pass before task 6
 
 ### Task 6: Add CLI integration tests
-- [ ] Create cmd/parcat/integration_test.go
-- [ ] Test main execution paths with actual parquet files
-- [ ] Test schema mode, join operations, CTE queries
-- [ ] Target: 0% to 50+% for cmd/parcat
-- [ ] Run: `go test -v ./cmd/parcat`
-- [ ] run project test suite - must pass before verification
+- [x] Create cmd/parcat/integration_test.go
+- [x] Test main execution paths with actual parquet files
+- [x] Test schema mode, join operations, CTE queries
+- [x] Target: 0% to 50+% for cmd/parcat
+- [x] Run: `go test -v ./cmd/parcat`
+- [x] run project test suite - must pass before verification
 
 ### Task 7: Verify overall coverage improvement
 - [ ] Run: `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out`
