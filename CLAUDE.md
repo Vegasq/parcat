@@ -29,12 +29,80 @@ import "github.com/vegasq/parcat/query"
 import "github.com/vegasq/parcat/output"
 ```
 
+### Query Package File Organization
+
+The query package is organized by functional areas to improve maintainability. Files are kept under 1000 lines and focused on specific responsibilities.
+
+#### Core Components (200-600 lines each)
+- `lexer.go` - SQL tokenization
+- `parser.go` - Main SQL parsing logic (SELECT, FROM, WHERE, JOIN, GROUP BY, etc.)
+- `parser_expression.go` - Expression parsing (binary operations, comparisons, literals)
+- `parser_function.go` - Function call and window function parsing
+- `executor.go` - Query execution orchestration
+- `filter.go` - WHERE clause evaluation
+- `aggregate.go` - GROUP BY and aggregation functions
+- `window.go` - Window functions (ROW_NUMBER, RANK, etc.)
+- `types.go` - AST types and structures
+
+#### Built-in Functions (organized by category)
+- `function.go` - Function registry and core function infrastructure
+- `function_string.go` - String functions (UPPER, LOWER, CONCAT, SUBSTRING, TRIM, LENGTH, etc.)
+- `function_math.go` - Math functions (ABS, CEIL, FLOOR, ROUND, SQRT, POW, MOD, etc.)
+- `function_datetime.go` - Date/time functions (EXTRACT, DATE_TRUNC, NOW, etc.)
+- `function_convert.go` - Type conversion functions (CAST, COALESCE, etc.)
+
+#### Test Files (organized by focus area)
+
+**Unit Tests:**
+- `function_string_test.go` - Tests for string functions
+- `function_math_test.go` - Tests for math functions
+- `function_datetime_test.go` - Tests for date/time functions
+- `function_convert_test.go` - Tests for conversion functions
+- `parser_test.go` - Core parser tests (SELECT, JOIN, GROUP BY parsing)
+- `parser_expression_test.go` - Expression parsing tests
+- `executor_test.go` - Core executor tests
+- `executor_join_test.go` - Join execution tests
+- `executor_cte_test.go` - CTE and subquery execution tests
+
+**Integration Tests:**
+- `integration_parquet_test.go` - Test helpers and basic integration tests
+- `integration_filter_test.go` - Filter, projection, and DISTINCT tests
+- `integration_aggregate_test.go` - GROUP BY, HAVING, and aggregate function tests
+- `integration_join_test.go` - All JOIN type tests (INNER, LEFT, RIGHT, FULL, CROSS)
+- `integration_advanced_test.go` - CTE, subquery, window function, and CASE tests
+- `integration_orderby_test.go` - ORDER BY, LIMIT, and OFFSET tests
+
+#### Adding New Functions
+
+When adding new built-in functions, place them in the appropriate category file:
+
+1. **String functions** (UPPER, LOWER, SUBSTRING, etc.) -> `function_string.go`
+   - Tests go in `function_string_test.go`
+
+2. **Math functions** (ABS, ROUND, SQRT, etc.) -> `function_math.go`
+   - Tests go in `function_math_test.go`
+
+3. **Date/time functions** (EXTRACT, DATE_TRUNC, etc.) -> `function_datetime.go`
+   - Tests go in `function_datetime_test.go`
+
+4. **Conversion functions** (CAST, COALESCE, etc.) -> `function_convert.go`
+   - Tests go in `function_convert_test.go`
+
+Each function must:
+- Be registered in the FunctionRegistry (in `function.go`)
+- Have a corresponding implementation function
+- Include comprehensive unit tests
+- Include integration tests in the appropriate `integration_*_test.go` file
+
 ## Testing Patterns
 
 ### Test File Organization
-- Test files are located alongside the code they test (e.g., `query/function.go` has tests in `query/function_test.go`)
-- Integration tests use real parquet files created via helper functions
-- Unit tests test individual functions in isolation
+- Test files are located alongside the code they test
+- Tests are split by functional area matching their implementation files
+- Unit tests (e.g., `function_string_test.go`) test individual functions in isolation
+- Integration tests (e.g., `integration_filter_test.go`) test end-to-end SQL query execution
+- Integration tests use real parquet files created via helper functions in `testdata_helpers.go`
+- See "Query Package File Organization" section for the complete test file structure
 
 ### Creating Test Parquet Files
 
@@ -177,23 +245,33 @@ go test ./query
 ## Query Engine Architecture
 
 ### Key Components
-- `lexer.go` - Tokenization
-- `parser.go` - SQL parsing to AST
-- `executor.go` - Query execution
+- `lexer.go` - SQL tokenization
+- `parser.go` - Main SQL parsing (SELECT, FROM, WHERE, JOIN, GROUP BY, ORDER BY)
+- `parser_expression.go` - Expression parsing (operators, comparisons, literals)
+- `parser_function.go` - Function call and window function parsing
+- `executor.go` - Query execution orchestration
 - `filter.go` - WHERE clause evaluation
-- `aggregate.go` - GROUP BY and aggregation
+- `aggregate.go` - GROUP BY and aggregation functions
 - `window.go` - Window functions
-- `function.go` - Built-in functions
+- `function.go` - Function registry and infrastructure
+- `function_string.go` - String function implementations
+- `function_math.go` - Math function implementations
+- `function_datetime.go` - Date/time function implementations
+- `function_convert.go` - Type conversion function implementations
 
 ### Adding New Features
 
 When adding new SQL features:
 1. Add tokens to lexer if needed
 2. Update AST types in `types.go`
-3. Add parsing logic to `parser.go`
+3. Add parsing logic to the appropriate parser file:
+   - Main clauses (SELECT, JOIN, etc.) -> `parser.go`
+   - Expressions (operators, comparisons) -> `parser_expression.go`
+   - Functions and window functions -> `parser_function.go`
 4. Implement execution logic in `executor.go` or dedicated file
-5. Add comprehensive tests in `integration_parquet_test.go`
-6. Update documentation in README.md
+5. Add unit tests to the appropriate test file
+6. Add integration tests to the appropriate `integration_*_test.go` file
+7. Update documentation in README.md
 
 ## Code Quality Standards
 
@@ -241,7 +319,11 @@ golangci-lint run  # If installed
 ## File Naming Conventions
 
 - Test files: `*_test.go`
-- Integration tests: `integration_*_test.go`
+- Category-specific files: `<base>_<category>.go` (e.g., `function_string.go`, `function_math.go`)
+- Category-specific tests: `<base>_<category>_test.go` (e.g., `function_string_test.go`)
+- Integration tests: `integration_<category>_test.go` (e.g., `integration_filter_test.go`)
+- Parser components: `parser_<component>.go` (e.g., `parser_expression.go`, `parser_function.go`)
+- Executor components: `executor_<component>_test.go` (e.g., `executor_join_test.go`)
 - Test helpers: `testdata_helpers.go`
 - Documentation: `doc.go` (package docs), `*.md` (guides)
 
