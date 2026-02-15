@@ -83,14 +83,14 @@ Refactor large files (>1000 lines) into smaller, focused modules to improve main
 
 ### Task 4: Refactor query/integration_parquet_test.go
 
-- [ ] Split query/integration_parquet_test.go by test category
-- [ ] Move filter/projection/distinct tests to integration_filter_test.go
-- [ ] Move groupby/having/aggregate tests to integration_aggregate_test.go
-- [ ] Move join tests to integration_join_test.go
-- [ ] Move CTE/subquery/window/case tests to integration_advanced_test.go
-- [ ] Move orderby/limit/offset tests to integration_orderby_test.go
-- [ ] Keep test helper functions in integration_parquet_test.go or move to testdata_helpers.go
-- [ ] Run query package tests - must pass before task 5
+- [x] Split query/integration_parquet_test.go by test category
+- [x] Move filter/projection/distinct tests to integration_filter_test.go
+- [x] Move groupby/having/aggregate tests to integration_aggregate_test.go
+- [x] Move join tests to integration_join_test.go
+- [x] Move CTE/subquery/window/case tests to integration_advanced_test.go
+- [x] Move orderby/limit/offset tests to integration_orderby_test.go
+- [x] Keep test helper functions in integration_parquet_test.go or move to testdata_helpers.go
+- [x] Run query package tests - must pass before task 5
 
 ### Task 5: Refactor query/executor_test.go
 
