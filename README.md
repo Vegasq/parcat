@@ -1012,15 +1012,23 @@ parcat/
 │   └── *_test.go                   # Reader tests
 ├── query/                          # SQL query engine (public API)
 │   ├── lexer.go                    # Query tokenization
-│   ├── parser.go                   # Query parsing
-│   ├── executor.go                 # Query execution
-│   ├── filter.go                   # Filter evaluation
+│   ├── parser.go                   # Main SQL parsing (SELECT, FROM, WHERE, JOIN, GROUP BY, ORDER BY)
+│   ├── parser_expression.go        # Expression parsing (operators, comparisons, literals)
+│   ├── parser_function.go          # Function call and window function parsing
+│   ├── executor.go                 # Query execution orchestration
+│   ├── filter.go                   # Filter evaluation (WHERE clause)
 │   ├── aggregate.go                # Aggregation and GROUP BY
 │   ├── window.go                   # Window functions
-│   ├── function.go                 # Built-in functions
+│   ├── function.go                 # Function registry and infrastructure
+│   ├── function_string.go          # String function implementations
+│   ├── function_math.go            # Math function implementations
+│   ├── function_datetime.go        # Date/time function implementations
+│   ├── function_convert.go         # Type conversion function implementations
 │   ├── types.go                    # AST types
+│   ├── validation.go               # Query validation
+│   ├── testdata_helpers.go         # Test helper functions
 │   ├── doc.go                      # Package documentation
-│   └── *_test.go                   # Query tests
+│   └── *_test.go                   # Query tests (organized by functional area)
 ├── output/                         # Output formatters (public API)
 │   ├── formatter.go                # Formatter interface
 │   ├── json.go                     # JSON Lines output

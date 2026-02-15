@@ -327,6 +327,18 @@ golangci-lint run  # If installed
 - Test helpers: `testdata_helpers.go`
 - Documentation: `doc.go` (package docs), `*.md` (guides)
 
+## Plans and Progress Tracking
+
+Completed refactoring plans and architectural decisions are documented in:
+- `docs/plans/completed/` - Successfully completed refactoring plans
+- Each plan file includes the date, objectives, tasks completed, and verification steps
+
+When undertaking major refactoring work:
+1. Create a plan in `docs/plans/` with objectives and tasks
+2. Complete tasks incrementally with full test verification between each
+3. Move plan to `docs/plans/completed/` when finished
+4. Update CLAUDE.md with any new patterns or conventions discovered
+
 ## Best Practices
 
 1. **Keep functions focused** - Single responsibility principle
