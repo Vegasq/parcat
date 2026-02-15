@@ -141,8 +141,10 @@ func valueToNumber(v interface{}) (float64, error) {
 	case int:
 		f := float64(val)
 		// Check for precision loss (integers > 2^53 lose precision)
-		// On 64-bit systems, int is int64
-		if val > (1<<53) || val < -(1<<53) {
+		// On 64-bit systems, int is int64; on 32-bit systems, int is int32
+		// For 32-bit int, all values fit in float64 without precision loss
+		const maxSafeInt = 1 << 53
+		if val > maxSafeInt || val < -maxSafeInt {
 			if int(f) != val {
 				return 0, fmt.Errorf("precision loss converting large int to number")
 			}
@@ -166,8 +168,10 @@ func valueToNumber(v interface{}) (float64, error) {
 	case uint:
 		f := float64(val)
 		// Check for precision loss (integers > 2^53 lose precision)
-		// On 64-bit systems, uint is uint64
-		if val > (1<<53) {
+		// On 64-bit systems, uint is uint64; on 32-bit systems, uint is uint32
+		// For 32-bit uint, all values fit in float64 without precision loss
+		const maxSafeUint = 1 << 53
+		if val > maxSafeUint {
 			if uint(f) != val {
 				return 0, fmt.Errorf("precision loss converting large uint to number")
 			}

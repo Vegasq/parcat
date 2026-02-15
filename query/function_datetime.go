@@ -2,7 +2,6 @@ package query
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"time"
 )
@@ -245,7 +244,9 @@ func (f *DateDiffFunc) Evaluate(args []interface{}) (interface{}, error) {
 	}
 
 	diff := date1.Sub(date2)
-	return int64(math.Round(diff.Hours() / 24)), nil
+	// Use truncation (not rounding) to maintain consistent behavior
+	// where partial days are counted as 0
+	return int64(diff.Hours() / 24), nil
 }
 
 // YearFunc extracts the year from a date
