@@ -964,3 +964,273 @@ func TestExtractSchemaInfo_VariousFileSizes(t *testing.T) {
 
 	// Note: The large schema test with 30 columns already exists as TestExtractSchemaInfo_LargeSchema
 }
+
+func TestGetUserFriendlyType(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name          string
+		setupFile     func(t *testing.T, filePath string)
+		expectedTypes map[string]string
+	}{
+		{
+			name: "UUID logical type",
+			setupFile: func(t *testing.T, filePath string) {
+				// Create a file with UUID field using parquet-go's UUID type
+				schema := parquet.SchemaOf(struct {
+					ID [16]byte `parquet:"id,uuid"`
+				}{})
+
+				f, err := os.Create(filePath)
+				if err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+				defer f.Close()
+
+				writer := parquet.NewWriter(f, schema)
+				if err := writer.Close(); err != nil {
+					t.Fatalf("failed to close writer: %v", err)
+				}
+			},
+			expectedTypes: map[string]string{
+				"id": "UUID",
+			},
+		},
+		{
+			name: "ENUM logical type",
+			setupFile: func(t *testing.T, filePath string) {
+				// Create a file with ENUM field using parquet-go's enum type
+				schema := parquet.SchemaOf(struct {
+					Status string `parquet:"status,enum"`
+				}{})
+
+				f, err := os.Create(filePath)
+				if err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+				defer f.Close()
+
+				writer := parquet.NewWriter(f, schema)
+				if err := writer.Close(); err != nil {
+					t.Fatalf("failed to close writer: %v", err)
+				}
+			},
+			expectedTypes: map[string]string{
+				"status": "ENUM",
+			},
+		},
+		{
+			name: "JSON logical type",
+			setupFile: func(t *testing.T, filePath string) {
+				// Create a file with JSON field using parquet-go's json type
+				schema := parquet.SchemaOf(struct {
+					Data string `parquet:"data,json"`
+				}{})
+
+				f, err := os.Create(filePath)
+				if err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+				defer f.Close()
+
+				writer := parquet.NewWriter(f, schema)
+				if err := writer.Close(); err != nil {
+					t.Fatalf("failed to close writer: %v", err)
+				}
+			},
+			expectedTypes: map[string]string{
+				"data": "JSON",
+			},
+		},
+		{
+			name: "BSON logical type",
+			setupFile: func(t *testing.T, filePath string) {
+				// Create a file with BSON field
+				// Note: parquet-go may not fully support BSON logical type annotation
+				// via struct tags, so we test using the schema builder directly
+				schema := parquet.NewSchema("test", parquet.Group{
+					"data": parquet.BSON(),
+				})
+
+				f, err := os.Create(filePath)
+				if err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+				defer f.Close()
+
+				writer := parquet.NewWriter(f, schema)
+				if err := writer.Close(); err != nil {
+					t.Fatalf("failed to close writer: %v", err)
+				}
+			},
+			expectedTypes: map[string]string{
+				"data": "BSON",
+			},
+		},
+		{
+			name: "INT96 physical type",
+			setupFile: func(t *testing.T, filePath string) {
+				// Create a file with INT96 field (timestamp nanoseconds)
+				// INT96 is typically used for legacy timestamp representation
+				schema := parquet.NewSchema("test", parquet.Group{
+					"timestamp": parquet.Leaf(parquet.Int96Type),
+				})
+
+				f, err := os.Create(filePath)
+				if err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+				defer f.Close()
+
+				writer := parquet.NewWriter(f, schema)
+				if err := writer.Close(); err != nil {
+					t.Fatalf("failed to close writer: %v", err)
+				}
+			},
+			expectedTypes: map[string]string{
+				"timestamp": "INT96",
+			},
+		},
+		{
+			name: "FixedLenByteArray physical type",
+			setupFile: func(t *testing.T, filePath string) {
+				// Create a file with FixedLenByteArray field
+				schema := parquet.NewSchema("test", parquet.Group{
+					"fixed_data": parquet.Leaf(parquet.FixedLenByteArrayType(10)),
+				})
+
+				f, err := os.Create(filePath)
+				if err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+				defer f.Close()
+
+				writer := parquet.NewWriter(f, schema)
+				if err := writer.Close(); err != nil {
+					t.Fatalf("failed to close writer: %v", err)
+				}
+			},
+			expectedTypes: map[string]string{
+				"fixed_data": "FIXED_LEN_BYTE_ARRAY",
+			},
+		},
+		{
+			name: "GROUP type handling",
+			setupFile: func(t *testing.T, filePath string) {
+				// Create a file with a nested group structure
+				type Nested struct {
+					Street string `parquet:"street"`
+					City   string `parquet:"city"`
+				}
+				type Row struct {
+					ID      int64  `parquet:"id"`
+					Address Nested `parquet:"address"`
+				}
+
+				rows := []Row{
+					{ID: 1, Address: Nested{Street: "123 Main", City: "NY"}},
+				}
+
+				f, err := os.Create(filePath)
+				if err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+				defer f.Close()
+
+				writer := parquet.NewGenericWriter[Row](f)
+				if _, err := writer.Write(rows); err != nil {
+					t.Fatalf("failed to write test data: %v", err)
+				}
+				if err := writer.Close(); err != nil {
+					t.Fatalf("failed to close writer: %v", err)
+				}
+			},
+			expectedTypes: map[string]string{
+				"id":             "INT64",
+				"address.street": "STRING",
+				"address.city":   "STRING",
+			},
+		},
+		{
+			name: "all basic types including edge cases",
+			setupFile: func(t *testing.T, filePath string) {
+				// Create a comprehensive test with all basic types
+				type Row struct {
+					BoolField   bool    `parquet:"bool_field"`
+					Int32Field  int32   `parquet:"int32_field"`
+					Int64Field  int64   `parquet:"int64_field"`
+					Float32     float32 `parquet:"float32_field"`
+					Float64     float64 `parquet:"float64_field"`
+					StringField string  `parquet:"string_field"`
+					BytesField  []byte  `parquet:"bytes_field"`
+				}
+
+				rows := []Row{
+					{
+						BoolField:   true,
+						Int32Field:  42,
+						Int64Field:  1234567890,
+						Float32:     3.14,
+						Float64:     2.71828,
+						StringField: "test",
+						BytesField:  []byte("data"),
+					},
+				}
+
+				f, err := os.Create(filePath)
+				if err != nil {
+					t.Fatalf("failed to create test file: %v", err)
+				}
+				defer f.Close()
+
+				writer := parquet.NewGenericWriter[Row](f)
+				if _, err := writer.Write(rows); err != nil {
+					t.Fatalf("failed to write test data: %v", err)
+				}
+				if err := writer.Close(); err != nil {
+					t.Fatalf("failed to close writer: %v", err)
+				}
+			},
+			expectedTypes: map[string]string{
+				"bool_field":   "BOOLEAN",
+				"int32_field":  "INT32",
+				"int64_field":  "INT64",
+				"float32_field": "FLOAT32",
+				"float64_field": "FLOAT64",
+				"string_field": "STRING",
+				"bytes_field":  "BYTE_ARRAY",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFile := filepath.Join(tmpDir, tt.name+".parquet")
+			tt.setupFile(t, testFile)
+
+			// Extract schema info
+			schemaInfos, err := ExtractSchemaInfo(testFile)
+			if err != nil {
+				t.Fatalf("ExtractSchemaInfo() error = %v", err)
+			}
+
+			// Create field map
+			fieldMap := make(map[string]SchemaInfo)
+			for _, info := range schemaInfos {
+				fieldMap[info.Name] = info
+			}
+
+			// Verify expected types
+			for fieldName, expectedType := range tt.expectedTypes {
+				info, ok := fieldMap[fieldName]
+				if !ok {
+					t.Errorf("field %s not found in schema", fieldName)
+					continue
+				}
+				if info.Type != expectedType {
+					t.Errorf("field %s: type = %s, want %s", fieldName, info.Type, expectedType)
+				}
+			}
+		})
+	}
+}

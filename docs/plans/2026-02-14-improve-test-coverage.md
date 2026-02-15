@@ -62,12 +62,12 @@ Improve test coverage across parcat library, focusing on untested CLI functions,
 
 ### Task 4: Expand reader schema tests
 
-- [ ] Expand reader schema tests in reader/schema_test.go
+- [x] Expand reader schema tests in reader/schema_test.go
   - Test getUserFriendlyType with all logical types (UUID, ENUM, JSON, BSON)
   - Test getUserFriendlyType with INT96 and FixedLenByteArray physical types
   - Test GROUP type handling
   - Test UNKNOWN type fallback
-- [ ] run `go test ./reader -run TestGetUserFriendlyType` - must pass
+- [x] run `go test ./reader -run TestGetUserFriendlyType` - must pass
 
 ## Verification
 
