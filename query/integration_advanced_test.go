@@ -98,7 +98,7 @@ func TestParquetCTE(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -214,7 +214,7 @@ func TestParquetSubquery(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -378,7 +378,7 @@ func TestParquetWindowFunctions(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -539,7 +539,7 @@ func TestParquetCaseExpression(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -706,7 +706,7 @@ func TestParquetComplexExpressions(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -852,7 +852,7 @@ func TestParquetNullValues(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -918,7 +918,7 @@ func TestParquetEmptyFile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -1069,7 +1069,7 @@ func TestParquetComplexSchema(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -1207,7 +1207,7 @@ func TestParquetLargeDataset(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -1398,7 +1398,7 @@ func TestParquetMixedTypes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {

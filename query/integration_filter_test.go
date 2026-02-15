@@ -149,7 +149,7 @@ func TestParquetFilter(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			// Execute query
 			results, err := ExecuteQuery(q, r)
@@ -248,7 +248,7 @@ func TestParquetProjection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -321,7 +321,7 @@ func TestParquetDistinct(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {

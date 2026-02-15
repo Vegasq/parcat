@@ -48,7 +48,7 @@ func TestCreateBasicParquetFile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to open created file: %v", err)
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 
 			stat, err := f.Stat()
 			if err != nil {
@@ -67,7 +67,7 @@ func TestCreateBasicParquetFile(t *testing.T) {
 
 			// Verify we can read the rows back
 			reader := parquet.NewGenericReader[BasicDataRow](f)
-			defer reader.Close()
+			defer func() { _ = reader.Close() }()
 
 			readRows := make([]BasicDataRow, len(tt.rows))
 			n, err := reader.Read(readRows)
@@ -163,7 +163,7 @@ func TestCreateComplexParquetFile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to open created file: %v", err)
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 
 			stat, err := f.Stat()
 			if err != nil {
@@ -196,7 +196,7 @@ func TestCreateEmptyParquetFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open created file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	stat, err := f.Stat()
 	if err != nil {
@@ -239,7 +239,7 @@ func TestCreateNamedBasicParquetFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open created file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	stat, err := f.Stat()
 	if err != nil {
@@ -291,7 +291,7 @@ func TestCreateNamedComplexParquetFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open created file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	stat, err := f.Stat()
 	if err != nil {

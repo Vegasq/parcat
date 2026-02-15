@@ -40,9 +40,10 @@ func TestParquetInnerJoin(t *testing.T) {
 				bobCount := 0
 				for _, row := range rows {
 					userName := row["u.name"].(string)
-					if userName == "Alice" {
+					switch userName {
+					case "Alice":
 						aliceCount++
-					} else if userName == "Bob" {
+					case "Bob":
 						bobCount++
 					}
 				}
@@ -103,7 +104,7 @@ func TestParquetInnerJoin(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -198,7 +199,7 @@ func TestParquetLeftJoin(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -293,7 +294,7 @@ func TestParquetRightJoin(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -388,7 +389,7 @@ func TestParquetFullJoin(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -481,7 +482,7 @@ func TestParquetCrossJoin(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -589,7 +590,7 @@ func TestParquetMultipleJoins(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {

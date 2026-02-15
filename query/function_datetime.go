@@ -150,22 +150,28 @@ func (f *DateAddFunc) Evaluate(args []interface{}) (interface{}, error) {
 	}
 
 	switch strings.ToLower(unit) {
-	case "year", "month", "day":
+	case "year":
 		// Check for reasonable bounds to prevent overflow
 		if amount > float64(1<<30) || amount < float64(-(1<<30)) {
 			return nil, fmt.Errorf("DATE_ADD: amount out of valid range")
 		}
-		switch strings.ToLower(unit) {
-		case "year":
-			return date.AddDate(int(amount), 0, 0).Format(time.RFC3339), nil
-		case "month":
-			return date.AddDate(0, int(amount), 0).Format(time.RFC3339), nil
-		case "day":
-			return date.AddDate(0, 0, int(amount)).Format(time.RFC3339), nil
+		return date.AddDate(int(amount), 0, 0).Format(time.RFC3339), nil
+	case "month":
+		// Check for reasonable bounds to prevent overflow
+		if amount > float64(1<<30) || amount < float64(-(1<<30)) {
+			return nil, fmt.Errorf("DATE_ADD: amount out of valid range")
 		}
+		return date.AddDate(0, int(amount), 0).Format(time.RFC3339), nil
+	case "day":
+		// Check for reasonable bounds to prevent overflow
+		if amount > float64(1<<30) || amount < float64(-(1<<30)) {
+			return nil, fmt.Errorf("DATE_ADD: amount out of valid range")
+		}
+		return date.AddDate(0, 0, int(amount)).Format(time.RFC3339), nil
 	case "hour":
 		// Check bounds before multiplication to prevent overflow
-		const maxHours = float64(1<<53) / float64(time.Hour)
+		// time.Duration is int64 in nanoseconds, max value allows ~292 years of hours
+		const maxHours = float64(1<<63-1) / float64(time.Hour)
 		if amount > maxHours || amount < -maxHours {
 			return nil, fmt.Errorf("DATE_ADD: amount out of valid range")
 		}
@@ -173,8 +179,6 @@ func (f *DateAddFunc) Evaluate(args []interface{}) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("DATE_ADD: invalid unit: %s", unit)
 	}
-	// This line is unreachable but kept to satisfy linter
-	return nil, fmt.Errorf("DATE_ADD: unexpected error")
 }
 
 // DateSubFunc subtracts an interval from a date
@@ -200,22 +204,28 @@ func (f *DateSubFunc) Evaluate(args []interface{}) (interface{}, error) {
 	}
 
 	switch strings.ToLower(unit) {
-	case "year", "month", "day":
+	case "year":
 		// Check for reasonable bounds to prevent overflow
 		if amount > float64(1<<30) || amount < float64(-(1<<30)) {
 			return nil, fmt.Errorf("DATE_SUB: amount out of valid range")
 		}
-		switch strings.ToLower(unit) {
-		case "year":
-			return date.AddDate(-int(amount), 0, 0).Format(time.RFC3339), nil
-		case "month":
-			return date.AddDate(0, -int(amount), 0).Format(time.RFC3339), nil
-		case "day":
-			return date.AddDate(0, 0, -int(amount)).Format(time.RFC3339), nil
+		return date.AddDate(-int(amount), 0, 0).Format(time.RFC3339), nil
+	case "month":
+		// Check for reasonable bounds to prevent overflow
+		if amount > float64(1<<30) || amount < float64(-(1<<30)) {
+			return nil, fmt.Errorf("DATE_SUB: amount out of valid range")
 		}
+		return date.AddDate(0, -int(amount), 0).Format(time.RFC3339), nil
+	case "day":
+		// Check for reasonable bounds to prevent overflow
+		if amount > float64(1<<30) || amount < float64(-(1<<30)) {
+			return nil, fmt.Errorf("DATE_SUB: amount out of valid range")
+		}
+		return date.AddDate(0, 0, -int(amount)).Format(time.RFC3339), nil
 	case "hour":
 		// Check bounds before multiplication to prevent overflow
-		const maxHours = float64(1<<53) / float64(time.Hour)
+		// time.Duration is int64 in nanoseconds, max value allows ~292 years of hours
+		const maxHours = float64(1<<63-1) / float64(time.Hour)
 		if amount > maxHours || amount < -maxHours {
 			return nil, fmt.Errorf("DATE_SUB: amount out of valid range")
 		}
@@ -223,7 +233,6 @@ func (f *DateSubFunc) Evaluate(args []interface{}) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("DATE_SUB: invalid unit: %s", unit)
 	}
-	return nil, fmt.Errorf("DATE_SUB: unexpected error")
 }
 
 // DateDiffFunc returns the difference between two dates in days

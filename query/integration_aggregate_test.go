@@ -105,7 +105,7 @@ func TestParquetGroupBy(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -199,7 +199,7 @@ func TestParquetHaving(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -335,7 +335,7 @@ func TestParquetAggregates(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -433,7 +433,7 @@ func TestParquetGroupByMultipleColumns(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
@@ -541,7 +541,7 @@ func TestParquetAggregateWithNulls(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create reader: %v", err)
 			}
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 
 			results, err := ExecuteQuery(q, r)
 			if err != nil {
