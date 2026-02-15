@@ -125,12 +125,14 @@ func (f *SubstringFunc) Evaluate(args []interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("SUBSTRING: start: %w", err)
 	}
+	// Convert to runes to handle multibyte UTF-8 characters correctly
+	runes := []rune(str)
 	startIdx := int(start) - 1 // SQL uses 1-based indexing
 
 	if startIdx < 0 {
 		startIdx = 0
 	}
-	if startIdx >= len(str) {
+	if startIdx >= len(runes) {
 		return "", nil
 	}
 
@@ -144,13 +146,13 @@ func (f *SubstringFunc) Evaluate(args []interface{}) (interface{}, error) {
 			return "", nil
 		}
 		endIdx := startIdx + lengthInt
-		if endIdx > len(str) {
-			endIdx = len(str)
+		if endIdx > len(runes) {
+			endIdx = len(runes)
 		}
-		return str[startIdx:endIdx], nil
+		return string(runes[startIdx:endIdx]), nil
 	}
 
-	return str[startIdx:], nil
+	return string(runes[startIdx:]), nil
 }
 
 // ReplaceFunc replaces occurrences of a substring

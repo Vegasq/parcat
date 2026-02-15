@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -253,9 +254,9 @@ func (f *DateDiffFunc) Evaluate(args []interface{}) (interface{}, error) {
 	}
 
 	diff := date1.Sub(date2)
-	// Use truncation (not rounding) to maintain consistent behavior
-	// where partial days are counted as 0
-	return int64(diff.Hours() / 24), nil
+	// Use floor division to ensure consistent truncation toward negative infinity
+	// This handles negative differences correctly (e.g., -23.5 hours = -1 day, not 0)
+	return int64(math.Floor(diff.Hours() / 24)), nil
 }
 
 // YearFunc extracts the year from a date

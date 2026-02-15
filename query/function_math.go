@@ -41,6 +41,10 @@ func (f *RoundFunc) Evaluate(args []interface{}) (interface{}, error) {
 		if err != nil {
 			return nil, fmt.Errorf("ROUND: decimals argument: %w", err)
 		}
+		// Validate decimals range to prevent overflow in math.Pow
+		if decimals > 308 || decimals < -308 {
+			return nil, fmt.Errorf("ROUND: decimals out of valid range (-308 to 308)")
+		}
 	}
 
 	multiplier := math.Pow(10, float64(decimals))
