@@ -119,4 +119,4 @@ Refactor large files (>1000 lines) into smaller, focused modules to improve main
 
 - [x] Update CLAUDE.md to document the new file organization pattern
 - [x] Update CLAUDE.md with guidance on where to add new functions (by category)
-- [ ] Move this plan to `docs/plans/completed/`
+- [x] Move this plan to `docs/plans/completed/`
