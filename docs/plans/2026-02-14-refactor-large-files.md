@@ -65,12 +65,12 @@ Refactor large files (>1000 lines) into smaller, focused modules to improve main
 
 ### Task 2: Refactor query/function_test.go
 
-- [ ] Split query/function_test.go by function category
-- [ ] Move string function tests to function_string_test.go
-- [ ] Move math function tests to function_math_test.go
-- [ ] Move datetime function tests to function_datetime_test.go
-- [ ] Move conversion function tests to function_convert_test.go
-- [ ] Run query package tests - must pass before task 3
+- [x] Split query/function_test.go by function category
+- [x] Move string function tests to function_string_test.go
+- [x] Move math function tests to function_math_test.go
+- [x] Move datetime function tests to function_datetime_test.go
+- [x] Move conversion function tests to function_convert_test.go
+- [x] Run query package tests - must pass before task 3
 
 ### Task 3: Refactor query/parser.go
 
