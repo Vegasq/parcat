@@ -74,12 +74,12 @@ Refactor large files (>1000 lines) into smaller, focused modules to improve main
 
 ### Task 3: Refactor query/parser.go
 
-- [ ] Split query/parser.go into focused files
-- [ ] Create parser_expression.go with expression parsing methods
-- [ ] Create parser_function.go with function/window parsing methods
-- [ ] Keep main query parsing in parser.go
-- [ ] Ensure Parser type and methods remain properly connected
-- [ ] Run query package tests - must pass before task 4
+- [x] Split query/parser.go into focused files
+- [x] Create parser_expression.go with expression parsing methods
+- [x] Create parser_function.go with function/window parsing methods
+- [x] Keep main query parsing in parser.go
+- [x] Ensure Parser type and methods remain properly connected
+- [x] Run query package tests - must pass before task 4
 
 ### Task 4: Refactor query/integration_parquet_test.go
 
