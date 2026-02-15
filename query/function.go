@@ -147,7 +147,14 @@ func valueToNumber(v interface{}) (float64, error) {
 	case int32:
 		return float64(val), nil
 	case int64:
-		return float64(val), nil
+		f := float64(val)
+		// Check for precision loss (integers > 2^53 lose precision)
+		if val > (1<<53) || val < -(1<<53) {
+			if int64(f) != val {
+				return 0, fmt.Errorf("precision loss converting large int64 to number")
+			}
+		}
+		return f, nil
 	case uint:
 		return float64(val), nil
 	case uint8:
@@ -157,7 +164,14 @@ func valueToNumber(v interface{}) (float64, error) {
 	case uint32:
 		return float64(val), nil
 	case uint64:
-		return float64(val), nil
+		f := float64(val)
+		// Check for precision loss (integers > 2^53 lose precision)
+		if val > (1<<53) {
+			if uint64(f) != val {
+				return 0, fmt.Errorf("precision loss converting large uint64 to number")
+			}
+		}
+		return f, nil
 	case string:
 		// Try to parse string as number
 		return strconv.ParseFloat(val, 64)

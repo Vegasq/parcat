@@ -298,14 +298,11 @@ func (f *RepeatFunc) Evaluate(args []interface{}) (interface{}, error) {
 	if countInt < 0 {
 		return nil, fmt.Errorf("REPEAT: count must be non-negative, got %d", countInt)
 	}
-	if countInt > 1000000 {
-		return nil, fmt.Errorf("REPEAT: count too large (max 1000000), got %d", countInt)
-	}
 	// Prevent memory exhaustion from large strings repeated many times
 	const maxTotalBytes = 10 * 1024 * 1024 // 10MB
-	if len(str)*countInt > maxTotalBytes {
-		return nil, fmt.Errorf("REPEAT: result would be too large (max %d bytes), got %d * %d = %d bytes",
-			maxTotalBytes, len(str), countInt, len(str)*countInt)
+	// Check for overflow before multiplication
+	if len(str) > 0 && countInt > maxTotalBytes/len(str) {
+		return nil, fmt.Errorf("REPEAT: result would be too large")
 	}
 
 	return strings.Repeat(str, countInt), nil

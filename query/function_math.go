@@ -95,6 +95,9 @@ func (f *ModFunc) Evaluate(args []interface{}) (interface{}, error) {
 	if divisor == 0 {
 		return nil, fmt.Errorf("MOD: division by zero")
 	}
+	if math.IsNaN(dividend) || math.IsNaN(divisor) || math.IsInf(dividend, 0) || math.IsInf(divisor, 0) {
+		return nil, fmt.Errorf("MOD: invalid input (NaN or Inf)")
+	}
 
 	return math.Mod(dividend, divisor), nil
 }
@@ -109,6 +112,9 @@ func (f *SqrtFunc) Evaluate(args []interface{}) (interface{}, error) {
 	num, err := valueToNumber(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("SQRT: %w", err)
+	}
+	if math.IsNaN(num) {
+		return nil, fmt.Errorf("SQRT: invalid input (NaN)")
 	}
 	if num < 0 {
 		return nil, fmt.Errorf("SQRT: negative number")
