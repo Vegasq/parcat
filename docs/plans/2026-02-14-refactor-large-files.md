@@ -109,11 +109,11 @@ Refactor large files (>1000 lines) into smaller, focused modules to improve main
 
 ## Verification
 
-- [ ] Run full test suite: `go test ./...`
-- [ ] Verify test coverage remains at 80%+: `go test -coverprofile=coverage.out ./query && go tool cover -func coverage.out`
-- [ ] Run `go vet ./...`
-- [ ] Verify no build errors: `go build ./...`
-- [ ] Check that all files are under 1000 lines: `find query -name "*.go" -exec wc -l {} + | sort -rn`
+- [x] Run full test suite: `go test ./...`
+- [x] Verify test coverage remains at 80%+: `go test -coverprofile=coverage.out ./query && go tool cover -func coverage.out`
+- [x] Run `go vet ./...`
+- [x] Verify no build errors: `go build ./...`
+- [x] Check that all files are under 1000 lines: `find query -name "*.go" -exec wc -l {} + | sort -rn`
 
 ## Documentation
 
