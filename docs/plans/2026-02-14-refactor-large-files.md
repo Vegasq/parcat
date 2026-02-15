@@ -94,11 +94,11 @@ Refactor large files (>1000 lines) into smaller, focused modules to improve main
 
 ### Task 5: Refactor query/executor_test.go
 
-- [ ] Split query/executor_test.go by test category
-- [ ] Move join-related tests to executor_join_test.go
-- [ ] Move CTE and subquery tests to executor_cte_test.go
-- [ ] Keep core executor tests in executor_test.go
-- [ ] Run query package tests - must pass before task 6
+- [x] Split query/executor_test.go by test category
+- [x] Move join-related tests to executor_join_test.go
+- [x] Move CTE and subquery tests to executor_cte_test.go
+- [x] Keep core executor tests in executor_test.go
+- [x] Run query package tests - must pass before task 6
 
 ### Task 6: Refactor query/parser_test.go
 
