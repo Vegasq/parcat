@@ -224,3 +224,31 @@ func TestNullIfFunc(t *testing.T) {
 		})
 	}
 }
+
+func TestMinMaxArityConvertFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		fn       Function
+		minArity int
+		maxArity int
+	}{
+		{"CAST", &CastFunc{}, 2, 2},
+		{"TRY_CAST", &TryCastFunc{}, 2, 2},
+		{"TO_STRING", &ToStringFunc{}, 1, 1},
+		{"TO_NUMBER", &ToNumberFunc{}, 1, 1},
+		{"TO_DATE", &ToDateFunc{}, 1, 1},
+		{"COALESCE", &CoalesceFunc{}, 1, -1},
+		{"NULLIF", &NullIfFunc{}, 2, 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.fn.MinArity(); got != tt.minArity {
+				t.Errorf("%s.MinArity() = %d, want %d", tt.name, got, tt.minArity)
+			}
+			if got := tt.fn.MaxArity(); got != tt.maxArity {
+				t.Errorf("%s.MaxArity() = %d, want %d", tt.name, got, tt.maxArity)
+			}
+		})
+	}
+}

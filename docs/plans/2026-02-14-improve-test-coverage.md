@@ -52,13 +52,13 @@ Improve test coverage across parcat library, focusing on untested CLI functions,
 
 ### Task 3: Add MinArity/MaxArity tests for all function types
 
-- [ ] Add MinArity/MaxArity tests for all function types
+- [x] Add MinArity/MaxArity tests for all function types
   - Add to function_string_test.go for string functions
   - Add to function_math_test.go for math functions
   - Add to function_datetime_test.go for datetime functions
   - Add to function_convert_test.go for convert functions
   - Use table-driven approach to test all function implementations
-- [ ] run `go test ./query -run TestMinMaxArity` - must pass
+- [x] run `go test ./query -run TestMinMaxArity` - must pass
 
 ### Task 4: Expand reader schema tests
 

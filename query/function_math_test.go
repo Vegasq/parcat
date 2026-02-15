@@ -374,3 +374,36 @@ func TestMinMaxFunc(t *testing.T) {
 		}
 	})
 }
+
+func TestMinMaxArityMathFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		fn       Function
+		minArity int
+		maxArity int
+	}{
+		{"ABS", &AbsFunc{}, 1, 1},
+		{"ROUND", &RoundFunc{}, 1, 2},
+		{"FLOOR", &FloorFunc{}, 1, 1},
+		{"CEIL", &CeilFunc{}, 1, 1},
+		{"MOD", &ModFunc{}, 2, 2},
+		{"SQRT", &SqrtFunc{}, 1, 1},
+		{"POW", &PowFunc{}, 2, 2},
+		{"SIGN", &SignFunc{}, 1, 1},
+		{"TRUNC", &TruncFunc{}, 1, 1},
+		{"RANDOM", &RandomFunc{}, 0, 0},
+		{"MIN", &MinFunc{}, 2, 2},
+		{"MAX", &MaxFunc{}, 2, 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.fn.MinArity(); got != tt.minArity {
+				t.Errorf("%s.MinArity() = %d, want %d", tt.name, got, tt.minArity)
+			}
+			if got := tt.fn.MaxArity(); got != tt.maxArity {
+				t.Errorf("%s.MaxArity() = %d, want %d", tt.name, got, tt.maxArity)
+			}
+		})
+	}
+}

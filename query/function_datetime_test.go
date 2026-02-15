@@ -271,3 +271,34 @@ func TestDateMonthFunc(t *testing.T) {
 		})
 	}
 }
+
+func TestMinMaxArityDateTimeFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		fn       Function
+		minArity int
+		maxArity int
+	}{
+		{"NOW", &NowFunc{}, 0, 0},
+		{"CURRENT_DATE", &CurrentDateFunc{}, 0, 0},
+		{"CURRENT_TIME", &CurrentTimeFunc{}, 0, 0},
+		{"DATE_TRUNC", &DateTruncFunc{}, 2, 2},
+		{"DATE_PART", &DatePartFunc{}, 2, 2},
+		{"DATE_ADD", &DateAddFunc{}, 3, 3},
+		{"DATE_SUB", &DateSubFunc{}, 3, 3},
+		{"DATE_DIFF", &DateDiffFunc{}, 2, 2},
+		{"YEAR", &YearFunc{}, 1, 1},
+		{"MONTH", &MonthFunc{}, 1, 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.fn.MinArity(); got != tt.minArity {
+				t.Errorf("%s.MinArity() = %d, want %d", tt.name, got, tt.minArity)
+			}
+			if got := tt.fn.MaxArity(); got != tt.maxArity {
+				t.Errorf("%s.MaxArity() = %d, want %d", tt.name, got, tt.maxArity)
+			}
+		})
+	}
+}

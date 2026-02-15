@@ -407,3 +407,39 @@ func TestSplitFunc(t *testing.T) {
 		})
 	}
 }
+
+func TestMinMaxArityStringFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		fn       Function
+		minArity int
+		maxArity int
+	}{
+		{"UPPER", &UpperFunc{}, 1, 1},
+		{"LOWER", &LowerFunc{}, 1, 1},
+		{"CONCAT", &ConcatFunc{}, 1, -1},
+		{"LENGTH", &LengthFunc{}, 1, 1},
+		{"TRIM", &TrimFunc{}, 1, 1},
+		{"LTRIM", &LTrimFunc{}, 1, 1},
+		{"RTRIM", &RTrimFunc{}, 1, 1},
+		{"SUBSTRING", &SubstringFunc{}, 2, 3},
+		{"REPLACE", &ReplaceFunc{}, 3, 3},
+		{"SPLIT", &SplitFunc{}, 2, 2},
+		{"REVERSE", &ReverseFunc{}, 1, 1},
+		{"CONTAINS", &ContainsFunc{}, 2, 2},
+		{"STARTS_WITH", &StartsWithFunc{}, 2, 2},
+		{"ENDS_WITH", &EndsWithFunc{}, 2, 2},
+		{"REPEAT", &RepeatFunc{}, 2, 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.fn.MinArity(); got != tt.minArity {
+				t.Errorf("%s.MinArity() = %d, want %d", tt.name, got, tt.minArity)
+			}
+			if got := tt.fn.MaxArity(); got != tt.maxArity {
+				t.Errorf("%s.MaxArity() = %d, want %d", tt.name, got, tt.maxArity)
+			}
+		})
+	}
+}
