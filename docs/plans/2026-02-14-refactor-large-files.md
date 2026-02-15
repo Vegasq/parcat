@@ -57,11 +57,11 @@ Refactor large files (>1000 lines) into smaller, focused modules to improve main
 
 ### Task 1: Refactor query/function.go
 
-- [ ] Split query/function.go into category files (string, math, datetime, convert)
-- [ ] Move function implementations to new files preserving all functionality
-- [ ] Ensure all function types remain exported and accessible
-- [ ] Verify FunctionRegistry still works with split files
-- [ ] Run query package tests - must pass before task 2
+- [x] Split query/function.go into category files (string, math, datetime, convert)
+- [x] Move function implementations to new files preserving all functionality
+- [x] Ensure all function types remain exported and accessible
+- [x] Verify FunctionRegistry still works with split files
+- [x] Run query package tests - must pass before task 2
 
 ### Task 2: Refactor query/function_test.go
 
