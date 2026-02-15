@@ -81,5 +81,5 @@ Improve test coverage across parcat library, focusing on untested CLI functions,
 
 ## Finalization
 
-- [ ] update CLAUDE.md if new test patterns discovered
-- [ ] move this plan to `docs/plans/completed/`
+- [x] update CLAUDE.md if new test patterns discovered (no new patterns - followed existing conventions)
+- [x] move this plan to `docs/plans/completed/`
