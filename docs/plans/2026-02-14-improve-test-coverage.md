@@ -44,11 +44,11 @@ Improve test coverage across parcat library, focusing on untested CLI functions,
 
 ### Task 2: Add ApplySelectListAfterWindows tests
 
-- [ ] Add ApplySelectListAfterWindows tests in query/filter_test.go
+- [x] Add ApplySelectListAfterWindows tests in query/filter_test.go
   - Test window expression projection
   - Test mixed window and regular expressions
   - Test error conditions (missing window results)
-- [ ] run `go test ./query -run TestApplySelectListAfterWindows` - must pass
+- [x] run `go test ./query -run TestApplySelectListAfterWindows` - must pass
 
 ### Task 3: Add MinArity/MaxArity tests for all function types
 

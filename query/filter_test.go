@@ -725,3 +725,207 @@ func TestApplyDistinct(t *testing.T) {
 		})
 	}
 }
+
+func TestApplySelectListAfterWindows(t *testing.T) {
+	tests := []struct {
+		name       string
+		rows       []map[string]interface{}
+		selectList []SelectItem
+		wantRows   []map[string]interface{}
+		wantErr    bool
+	}{
+		{
+			name: "empty rows returns empty",
+			rows: []map[string]interface{}{},
+			selectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "id"}},
+			},
+			wantRows: []map[string]interface{}{},
+			wantErr:  false,
+		},
+		{
+			name: "window expression projection",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice", "ROW_NUMBER": int64(1)},
+				{"id": int64(2), "name": "bob", "ROW_NUMBER": int64(2)},
+			},
+			selectList: []SelectItem{
+				{Expr: &WindowExpr{Function: "ROW_NUMBER"}},
+			},
+			wantRows: []map[string]interface{}{
+				{"ROW_NUMBER": int64(1)},
+				{"ROW_NUMBER": int64(2)},
+			},
+			wantErr: false,
+		},
+		{
+			name: "window expression with alias",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice", "row_num": int64(1)},
+				{"id": int64(2), "name": "bob", "row_num": int64(2)},
+			},
+			selectList: []SelectItem{
+				{Expr: &WindowExpr{Function: "ROW_NUMBER"}, Alias: "row_num"},
+			},
+			wantRows: []map[string]interface{}{
+				{"row_num": int64(1)},
+				{"row_num": int64(2)},
+			},
+			wantErr: false,
+		},
+		{
+			name: "mixed window and regular expressions",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice", "RANK": int64(1)},
+				{"id": int64(2), "name": "bob", "RANK": int64(2)},
+			},
+			selectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "id"}},
+				{Expr: &WindowExpr{Function: "RANK"}},
+				{Expr: &ColumnRef{Column: "name"}},
+			},
+			wantRows: []map[string]interface{}{
+				{"id": int64(1), "RANK": int64(1), "name": "alice"},
+				{"id": int64(2), "RANK": int64(2), "name": "bob"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "mixed window and regular with aliases",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice", "ranking": int64(1)},
+				{"id": int64(2), "name": "bob", "ranking": int64(2)},
+			},
+			selectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "id"}, Alias: "user_id"},
+				{Expr: &WindowExpr{Function: "RANK"}, Alias: "ranking"},
+			},
+			wantRows: []map[string]interface{}{
+				{"user_id": int64(1), "ranking": int64(1)},
+				{"user_id": int64(2), "ranking": int64(2)},
+			},
+			wantErr: false,
+		},
+		{
+			name: "error - missing window results",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice"},
+				{"id": int64(2), "name": "bob"},
+			},
+			selectList: []SelectItem{
+				{Expr: &WindowExpr{Function: "ROW_NUMBER"}},
+			},
+			wantRows: nil,
+			wantErr:  true,
+		},
+		{
+			name: "error - missing window results with alias",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice"},
+				{"id": int64(2), "name": "bob"},
+			},
+			selectList: []SelectItem{
+				{Expr: &WindowExpr{Function: "RANK"}, Alias: "ranking"},
+			},
+			wantRows: nil,
+			wantErr:  true,
+		},
+		{
+			name: "column reference without alias",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice"},
+				{"id": int64(2), "name": "bob"},
+			},
+			selectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "name"}},
+			},
+			wantRows: []map[string]interface{}{
+				{"name": "alice"},
+				{"name": "bob"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "column reference with alias",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice"},
+				{"id": int64(2), "name": "bob"},
+			},
+			selectList: []SelectItem{
+				{Expr: &ColumnRef{Column: "name"}, Alias: "user_name"},
+			},
+			wantRows: []map[string]interface{}{
+				{"user_name": "alice"},
+				{"user_name": "bob"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "function call without alias",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice"},
+				{"id": int64(2), "name": "bob"},
+			},
+			selectList: []SelectItem{
+				{Expr: &FunctionCall{Name: "UPPER", Args: []SelectExpression{&ColumnRef{Column: "name"}}}},
+			},
+			wantRows: []map[string]interface{}{
+				{"UPPER": "ALICE"},
+				{"UPPER": "BOB"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "multiple window functions",
+			rows: []map[string]interface{}{
+				{"id": int64(1), "name": "alice", "ROW_NUMBER": int64(1), "RANK": int64(1)},
+				{"id": int64(2), "name": "bob", "ROW_NUMBER": int64(2), "RANK": int64(2)},
+			},
+			selectList: []SelectItem{
+				{Expr: &WindowExpr{Function: "ROW_NUMBER"}},
+				{Expr: &WindowExpr{Function: "RANK"}},
+			},
+			wantRows: []map[string]interface{}{
+				{"ROW_NUMBER": int64(1), "RANK": int64(1)},
+				{"ROW_NUMBER": int64(2), "RANK": int64(2)},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ApplySelectListAfterWindows(tt.rows, tt.selectList)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ApplySelectListAfterWindows() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+
+			if len(got) != len(tt.wantRows) {
+				t.Errorf("ApplySelectListAfterWindows() returned %d rows, want %d", len(got), len(tt.wantRows))
+				return
+			}
+
+			for i, row := range got {
+				wantRow := tt.wantRows[i]
+				if len(row) != len(wantRow) {
+					t.Errorf("Row %d: got %d columns, want %d", i, len(row), len(wantRow))
+					continue
+				}
+				for key, wantVal := range wantRow {
+					gotVal, exists := row[key]
+					if !exists {
+						t.Errorf("Row %d: missing column %q", i, key)
+						continue
+					}
+					if gotVal != wantVal {
+						t.Errorf("Row %d, column %q: got %v, want %v", i, key, gotVal, wantVal)
+					}
+				}
+			}
+		})
+	}
+}
