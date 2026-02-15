@@ -102,10 +102,10 @@ Refactor large files (>1000 lines) into smaller, focused modules to improve main
 
 ### Task 6: Refactor query/parser_test.go
 
-- [ ] Split query/parser_test.go by parsing area
-- [ ] Move expression parsing tests to parser_expression_test.go
-- [ ] Keep main parser tests in parser_test.go
-- [ ] Run query package tests - must pass
+- [x] Split query/parser_test.go by parsing area
+- [x] Move expression parsing tests to parser_expression_test.go
+- [x] Keep main parser tests in parser_test.go
+- [x] Run query package tests - must pass
 
 ## Verification
 
