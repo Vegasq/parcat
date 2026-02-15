@@ -379,47 +379,8 @@ func TestCreateNullRowHelper(t *testing.T) {
 	}
 }
 
-func TestExecuteInnerJoinHelper(t *testing.T) {
-	tests := []struct {
-		name      string
-		leftRows  []map[string]interface{}
-		rightRows []map[string]interface{}
-		wantCount int
-	}{
-		{
-			name: "basic inner join",
-			leftRows: []map[string]interface{}{
-				{"t1.id": int64(1), "t1.name": "Alice"},
-				{"t1.id": int64(2), "t1.name": "Bob"},
-			},
-			rightRows: []map[string]interface{}{
-				{"t2.id": int64(1), "t2.dept": "Engineering"},
-				{"t2.id": int64(3), "t2.dept": "Sales"},
-			},
-			wantCount: 1, // Only id=1 matches
-		},
-		{
-			name:      "empty left",
-			leftRows:  []map[string]interface{}{},
-			rightRows: []map[string]interface{}{{"t2.id": int64(1)}},
-			wantCount: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a simple equality condition for testing
-			// In practice, this would be query.Expression
-			// For this test, we'll verify the helper can be called
-			// Full testing requires the actual condition evaluation
-			_ = tt.leftRows
-			_ = tt.rightRows
-			_ = tt.wantCount
-			// Note: Full testing of join helpers requires query.Expression which is complex
-			// The helper functions are tested indirectly through integration tests
-		})
-	}
-}
+// Note: executeInnerJoinHelper is tested indirectly through integration tests
+// Direct unit testing requires complex query.Expression setup
 
 func TestExecuteCrossJoinHelper(t *testing.T) {
 	tests := []struct {
