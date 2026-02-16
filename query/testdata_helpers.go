@@ -42,7 +42,7 @@ func createBasicParquetFile(t *testing.T, rows []BasicDataRow) string {
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	writer := parquet.NewGenericWriter[BasicDataRow](f)
 	if _, err := writer.Write(rows); err != nil {
@@ -66,7 +66,7 @@ func createComplexParquetFile(t *testing.T, rows []ComplexDataRow) string {
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	writer := parquet.NewGenericWriter[ComplexDataRow](f)
 	if _, err := writer.Write(rows); err != nil {
@@ -90,7 +90,7 @@ func createEmptyParquetFile(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("failed to create empty test file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	writer := parquet.NewGenericWriter[BasicDataRow](f)
 	// Write empty slice - no rows
@@ -114,7 +114,7 @@ func createNamedBasicParquetFile(t *testing.T, dir, filename string, rows []Basi
 	if err != nil {
 		t.Fatalf("failed to create test file %s: %v", filename, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	writer := parquet.NewGenericWriter[BasicDataRow](f)
 	if _, err := writer.Write(rows); err != nil {
@@ -136,7 +136,7 @@ func createNamedComplexParquetFile(t *testing.T, dir, filename string, rows []Co
 	if err != nil {
 		t.Fatalf("failed to create test file %s: %v", filename, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	writer := parquet.NewGenericWriter[ComplexDataRow](f)
 	if _, err := writer.Write(rows); err != nil {
